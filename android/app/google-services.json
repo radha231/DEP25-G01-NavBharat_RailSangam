@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "50731714956",
+    "project_id": "classico-10cae",
+    "storage_bucket": "classico-10cae.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:50731714956:android:7f105a82b94ef91d042ea9",
+        "android_client_info": {
+          "package_name": "com.example.classico"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdKJKcdtAHJZxMpucDMILN1m-Y2iexp5c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
