@@ -4,16 +4,6 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -31,7 +21,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+              'you can reconfigure this by running the FlutterFire CLI again.',
         );
       default:
         throw UnsupportedError(
@@ -48,6 +38,7 @@ class DefaultFirebaseOptions {
     authDomain: 'classico-10cae.firebaseapp.com',
     storageBucket: 'classico-10cae.firebasestorage.app',
     measurementId: 'G-B9REZVNY9R',
+    databaseURL: 'https://classico-10cae-default-rtdb.firebaseio.com', // Add this line
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -56,6 +47,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '50731714956',
     projectId: 'classico-10cae',
     storageBucket: 'classico-10cae.firebasestorage.app',
+    databaseURL: 'https://classico-10cae-default-rtdb.firebaseio.com', // Add this line
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -65,6 +57,7 @@ class DefaultFirebaseOptions {
     projectId: 'classico-10cae',
     storageBucket: 'classico-10cae.firebasestorage.app',
     iosBundleId: 'com.example.classico',
+    databaseURL: 'https://classico-10cae-default-rtdb.firebaseio.com', // Add this line
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -74,6 +67,7 @@ class DefaultFirebaseOptions {
     projectId: 'classico-10cae',
     storageBucket: 'classico-10cae.firebasestorage.app',
     iosBundleId: 'com.example.classico',
+    databaseURL: 'https://classico-10cae-default-rtdb.firebaseio.com', // Add this line
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -84,5 +78,23 @@ class DefaultFirebaseOptions {
     authDomain: 'classico-10cae.firebaseapp.com',
     storageBucket: 'classico-10cae.firebasestorage.app',
     measurementId: 'G-8TMLB7QXF4',
+    databaseURL: 'https://classico-10cae-default-rtdb.firebaseio.com', // Add this line
   );
 }
+
+/*
+The main change I made was adding the databaseURL parameter to each platform configuration. The database URL I added is based on your project ID (classico-10cae).
+To verify this is the correct URL:
+
+Go to your Firebase Console
+Select your project (classico-10cae)
+Go to Realtime Database
+Check the URL shown at the top of your database
+
+If the database URL is different from what I provided, replace all instances of 'https://classico-10cae-default-rtdb.firebaseio.com' with your actual database URL.
+Make sure you have:
+
+Created a Realtime Database in your Firebase project
+Set up the database rules to allow read/write access as needed
+Added the train data to your database
+ */
