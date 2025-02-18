@@ -13,9 +13,10 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Dependencies for Train Social App
-  firebase_core: ^2.24.2
-  firebase_database: ^10.4.0
+  firebase_core: ^3.10.1
+  firebase_database: ^11.3.1
   geolocator: ^10.1.0
+  cloud_firestore: ^5.6.2
   dropdown_button2: ^2.3.9
   # google_maps_flutter: ^2.5.3 #If you plan to show maps
   # shared_preferences: ^2.2.2 #For local data storage
