@@ -10,12 +10,57 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'firebase_options.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Update the main function to initialize Firebase
+Future<void> addSampleUsers() async {
+  final users = FirebaseFirestore.instance.collection('Trains');
+
+  final sampleData = [
+    { 'Train Name': 'Kalka Shatabdi Express (12005/12006)',
+      'Stops' : ['Kalka'	,'Chandigarh',	'Ambala Cantt',	'Kurukshetra'	,'Panipat']},
+  ];
+
+  for (var user in sampleData) {
+    await users.add(user);
+  }
+}
+
+Future<void> deleteAllData() async {
+  try {
+
+    FirebaseFirestore firestore = FirebaseFirestore.instance;
+    print('Flag 1');
+    // Specify the names of the collections you want to delete
+    final collectionNames = ['Trains']; // Replace with your actual collection names
+
+    for (String collectionName in collectionNames) {
+      final collectionRef = firestore.collection(collectionName);
+      print('Flag 2');
+      // Get all documents in the collection
+      final snapshot = await collectionRef.get();
+      print('Flag 3');
+      for (var doc in snapshot.docs) {
+        // Delete each document
+        await doc.reference.delete();
+      }
+    }
+
+    print('All data deleted successfully.');
+  } catch (e) {
+    print('Error deleting data: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await deleteAllData();
+  await addSampleUsers();
   runApp(const TrainSocialApp());
 }
 
@@ -80,23 +125,32 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> loadTrains() async {
-    final DatabaseReference database = FirebaseDatabase.instance.ref();
-    final snapshot = await database.child('trains').get();
+    try {
+      // Reference to the 'Trains' collection
+      final trainCollection = FirebaseFirestore.instance.collection('Trains');
+      final snapshot = await trainCollection.get();
 
-    if (snapshot.exists) {
-      final data = snapshot.value as Map<dynamic, dynamic>;
-      trains = data.entries.map((entry) {
-        final stations = List<String>.from(
-          entry.value.entries
-              .where((e) => e.key.startsWith('Station'))
-              .map((e) => e.value as String),
+      // Convert snapshot documents to Train objects
+      trains = snapshot.docs.map((doc) {
+        final data = doc.data();
+
+        // Safely cast the 'Stops' field to a List<String>
+        final List<String> stations = List<String>.from(data['Stops'] ?? []);
+
+        // Return Train object with name and stops
+        return Train(
+          name: data['Train Name'] ?? 'Unnamed Train',
+          stations: stations,
         );
-        return Train(name: entry.value['Train Name'] as String, stations: stations);
       }).toList();
 
+      // Update the UI
       setState(() {
         isLoading = false;
       });
+    } catch (e) {
+      print('Error loading trains: $e');
+      setState(() => isLoading = false);
     }
   }
 
