@@ -140,12 +140,12 @@ class _LoginPageState extends State<LoginPage> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 24),
-                      const CustomTextField(
+                      CustomTextField(
                         label: 'PNR Number',
                         prefixIcon: Icons.confirmation_number,
                       ),
                       const SizedBox(height: 16),
-                      const CustomTextField(
+                      CustomTextField(
                         label: 'Full Name',
                         prefixIcon: Icons.person,
                       ),
@@ -179,7 +179,7 @@ class _LoginPageState extends State<LoginPage> {
                           },
                         ),
                       const SizedBox(height: 16),
-                      const CustomTextField(
+                      CustomTextField(
                         label: 'Your Interests',
                         prefixIcon: Icons.interests,
                         hint: 'e.g., Photography, History, Food',
@@ -595,7 +595,6 @@ class TravelerCard extends StatelessWidget {
     );
   }
 }
-
 
 class HistoryCard extends StatelessWidget {
   const HistoryCard({super.key});
