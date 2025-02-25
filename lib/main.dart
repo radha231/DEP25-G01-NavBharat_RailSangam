@@ -19,8 +19,6 @@ Future<void> addSampleUsers() async {
   final users = FirebaseFirestore.instance.collection('Trains');
 
   final sampleData = [
-    { 'Train Name': 'Kalka Shatabdi Express (12005/12006)',
-      'Stops' : ['Kalka'	,'Chandigarh',	'Ambala Cantt',	'Kurukshetra'	,'Panipat']},
   ];
 
   for (var user in sampleData) {
@@ -32,16 +30,13 @@ Future<void> deleteAllData() async {
   try {
 
     FirebaseFirestore firestore = FirebaseFirestore.instance;
-    print('Flag 1');
     // Specify the names of the collections you want to delete
     final collectionNames = ['Trains']; // Replace with your actual collection names
 
     for (String collectionName in collectionNames) {
       final collectionRef = firestore.collection(collectionName);
-      print('Flag 2');
       // Get all documents in the collection
       final snapshot = await collectionRef.get();
-      print('Flag 3');
       for (var doc in snapshot.docs) {
         // Delete each document
         await doc.reference.delete();
@@ -59,8 +54,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await deleteAllData();
-  await addSampleUsers();
   runApp(const TrainSocialApp());
 }
 
