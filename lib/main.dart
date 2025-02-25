@@ -15,56 +15,56 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Update the main function to initialize Firebase
-Future<void> addSampleUsers() async {
-  final users = FirebaseFirestore.instance.collection('Coordinates');
-  print("Data Entered");
-
-  final sampleData = [
-    {"Station": "Kalka", "Coordinates": "30.8390°N, 76.9395°E"},
-    {"Station": "Chandigarh", "Coordinates": "30.7046°N, 76.7179°E"},
-    {"Station": "Ambala Cantt", "Coordinates": "30.3752°N, 76.7821°E"},
-    {"Station": "Ambala", "Coordinates": "30.3782°N, 76.7767°E"},
-    {"Station": "Kurukshetra", "Coordinates": "29.9695°N, 76.8783°E"},
-    {"Station": "Panipat", "Coordinates": "29.3901°N, 76.9635°E"},
-    {"Station": "Delhi", "Coordinates": "28.6139°N, 77.2090°E"},
-    {"Station": "Mathura", "Coordinates": "27.4924°N, 77.6737°E"},
-    {"Station": "Kota", "Coordinates": "25.2138°N, 75.8648°E"},
-    {"Station": "Ratlam", "Coordinates": "23.3300°N, 75.0403°E"},
-    {"Station": "Vadodara", "Coordinates": "22.3072°N, 73.1812°E"},
-    {"Station": "Mumbai Central", "Coordinates": "18.9710°N, 72.8194°E"},
-    {"Station": "Saharanpur", "Coordinates": "29.9640°N, 77.5460°E"},
-    {"Station": "Moradabad", "Coordinates": "28.8386°N, 78.7733°E"},
-    {"Station": "Lucknow", "Coordinates": "26.8467°N, 80.9462°E"},
-    {"Station": "Prayagraj", "Coordinates": "25.4358°N, 81.8463°E"},
-    {"Station": "Bareilly", "Coordinates": "28.3670°N, 79.4304°E"},
-    {"Station": "Kanpur", "Coordinates": "26.4499°N, 80.3319°E"},
-    {"Station": "Agra", "Coordinates": "27.1767°N, 78.0081°E"},
-    {"Station": "Nagpur", "Coordinates": "21.1458°N, 79.0882°E"},
-    {"Station": "Vijayawada", "Coordinates": "16.5062°N, 80.6480°E"},
-    {"Station": "Ernakulam", "Coordinates": "9.9816°N, 76.2999°E"},
-    {"Station": "Kochuveli", "Coordinates": "8.5215°N, 76.9006°E"},
-    {"Station": "Ludhiana", "Coordinates": "30.9005°N, 75.8462°E"},
-    {"Station": "Jalandhar", "Coordinates": "31.3260°N, 75.5762°E"},
-    {"Station": "Amritsar", "Coordinates": "31.6340°N, 74.8723°E"},
-    {"Station": "Gorakhpur", "Coordinates": "26.7606°N, 83.3732°E"},
-    {"Station": "Guwahati", "Coordinates": "26.1445°N, 91.7362°E"},
-    {"Station": "Dibrugarh", "Coordinates": "27.4728°N, 94.9110°E"},
-    {"Station": "Bandra Terminus", "Coordinates": "19.0544°N, 72.8402°E"},
-    {"Station": "Jaipur", "Coordinates": "26.9124°N, 75.7873°E"},
-    {"Station": "Gurgaon", "Coordinates": "28.4595°N, 77.0266°E"},
-    {"Station": "Rewari", "Coordinates": "28.1970°N, 76.6170°E"},
-    {"Station": "Nangal Dam", "Coordinates": "31.3891°N, 76.3755°E"},
-    {"Station": "Ropar", "Coordinates": "30.9671°N, 76.5231°E"},
-    {"Station": "Morinda", "Coordinates": "30.7890°N, 76.4977°E"},
-    {"Station": "Una", "Coordinates": "31.4640°N, 76.2708°E"},
-    {"Station": "Amb Andaura", "Coordinates": "31.6410°N, 76.2160°E"},
-  ];
-
-  for (var station in sampleData) {
-    await users.add(station);
-  }
-  print("Data Added Successfully");
-}
+// Future<void> addSampleUsers() async {
+//   final users = FirebaseFirestore.instance.collection('Coordinates');
+//   print("Data Entered");
+//
+//   final sampleData = [
+//     {"Station": "Kalka", "Coordinates": "30.8390°N, 76.9395°E"},
+//     {"Station": "Chandigarh", "Coordinates": "30.7046°N, 76.7179°E"},
+//     {"Station": "Ambala Cantt", "Coordinates": "30.3752°N, 76.7821°E"},
+//     {"Station": "Ambala", "Coordinates": "30.3782°N, 76.7767°E"},
+//     {"Station": "Kurukshetra", "Coordinates": "29.9695°N, 76.8783°E"},
+//     {"Station": "Panipat", "Coordinates": "29.3901°N, 76.9635°E"},
+//     {"Station": "Delhi", "Coordinates": "28.6139°N, 77.2090°E"},
+//     {"Station": "Mathura", "Coordinates": "27.4924°N, 77.6737°E"},
+//     {"Station": "Kota", "Coordinates": "25.2138°N, 75.8648°E"},
+//     {"Station": "Ratlam", "Coordinates": "23.3300°N, 75.0403°E"},
+//     {"Station": "Vadodara", "Coordinates": "22.3072°N, 73.1812°E"},
+//     {"Station": "Mumbai Central", "Coordinates": "18.9710°N, 72.8194°E"},
+//     {"Station": "Saharanpur", "Coordinates": "29.9640°N, 77.5460°E"},
+//     {"Station": "Moradabad", "Coordinates": "28.8386°N, 78.7733°E"},
+//     {"Station": "Lucknow", "Coordinates": "26.8467°N, 80.9462°E"},
+//     {"Station": "Prayagraj", "Coordinates": "25.4358°N, 81.8463°E"},
+//     {"Station": "Bareilly", "Coordinates": "28.3670°N, 79.4304°E"},
+//     {"Station": "Kanpur", "Coordinates": "26.4499°N, 80.3319°E"},
+//     {"Station": "Agra", "Coordinates": "27.1767°N, 78.0081°E"},
+//     {"Station": "Nagpur", "Coordinates": "21.1458°N, 79.0882°E"},
+//     {"Station": "Vijayawada", "Coordinates": "16.5062°N, 80.6480°E"},
+//     {"Station": "Ernakulam", "Coordinates": "9.9816°N, 76.2999°E"},
+//     {"Station": "Kochuveli", "Coordinates": "8.5215°N, 76.9006°E"},
+//     {"Station": "Ludhiana", "Coordinates": "30.9005°N, 75.8462°E"},
+//     {"Station": "Jalandhar", "Coordinates": "31.3260°N, 75.5762°E"},
+//     {"Station": "Amritsar", "Coordinates": "31.6340°N, 74.8723°E"},
+//     {"Station": "Gorakhpur", "Coordinates": "26.7606°N, 83.3732°E"},
+//     {"Station": "Guwahati", "Coordinates": "26.1445°N, 91.7362°E"},
+//     {"Station": "Dibrugarh", "Coordinates": "27.4728°N, 94.9110°E"},
+//     {"Station": "Bandra Terminus", "Coordinates": "19.0544°N, 72.8402°E"},
+//     {"Station": "Jaipur", "Coordinates": "26.9124°N, 75.7873°E"},
+//     {"Station": "Gurgaon", "Coordinates": "28.4595°N, 77.0266°E"},
+//     {"Station": "Rewari", "Coordinates": "28.1970°N, 76.6170°E"},
+//     {"Station": "Nangal Dam", "Coordinates": "31.3891°N, 76.3755°E"},
+//     {"Station": "Ropar", "Coordinates": "30.9671°N, 76.5231°E"},
+//     {"Station": "Morinda", "Coordinates": "30.7890°N, 76.4977°E"},
+//     {"Station": "Una", "Coordinates": "31.4640°N, 76.2708°E"},
+//     {"Station": "Amb Andaura", "Coordinates": "31.6410°N, 76.2160°E"},
+//   ];
+//
+//   for (var station in sampleData) {
+//     await users.add(station);
+//   }
+//   print("Data Added Successfully");
+// }
 
 
 // Future<void> deleteAllData() async {
@@ -126,7 +126,7 @@ void main() async {
     name: 'classico-dc2a9',
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  addSampleUsers();
+  // addSampleUsers();
   Position? position = await getLiveLocation();
   if (position != null) {
     print("Latitude: ${position.latitude}, Longitude: ${position.longitude}");
