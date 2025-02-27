@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'dart:math';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -285,6 +286,43 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterL
 //   print('Stations Added Successfully');
 // }
 
+Map<String, double> parseCoordinates(String coordinates) {
+  // Regular expression to extract numeric values and directions
+  final RegExp regex = RegExp(r'([\d.]+)°([NS]),\s*([\d.]+)°([EW])');
+  final match = regex.firstMatch(coordinates);
+
+  if (match == null) {
+    throw FormatException("Invalid coordinate format");
+  }
+
+  double latitude = double.parse(match.group(1)!);
+  double longitude = double.parse(match.group(3)!);
+
+  // Adjust sign based on N/S and E/W
+  if (match.group(2) == 'S') latitude = -latitude;
+  if (match.group(4) == 'W') longitude = -longitude;
+
+  return {'latitude': latitude, 'longitude': longitude};
+}
+
+double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  const double R = 6371.0; // Earth's radius in kilometers
+
+  // Convert degrees to radians
+  double toRadians(double degree) => degree * pi / 180.0;
+
+  double dLat = toRadians(lat2 - lat1);
+  double dLon = toRadians(lon2 - lon1);
+
+  double a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(toRadians(lat1)) * cos(toRadians(lat2)) *
+          sin(dLon / 2) * sin(dLon / 2);
+
+  double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+  return R * c; // Distance in kilometers
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -298,8 +336,8 @@ Future<void> main() async {
 class Train {
   final String name;
   final List<String> stations;
-
-  Train({required this.name, required this.stations});
+  final List<String> coordinates;
+  Train({required this.name, required this.stations, required this.coordinates});
 }
 
 // Add this class to handle location services
@@ -356,16 +394,37 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> loadTrains() async {
     try {
+      // Reference to the 'Trains' collection
       final trainCollection = FirebaseFirestore.instance.collection('Trains');
       final snapshot = await trainCollection.get();
-      trains = snapshot.docs.map((doc) {
+
+      // Convert snapshot documents to Train objects
+      trains = await Future.wait(snapshot.docs.map((doc) async{
         final data = doc.data();
-        List<String> stations = List<String>.from(data['Stops'] ?? []);
+
+        // Safely cast the 'Stops' field to a List<String>
+        final List<String> stations = List<String>.from(data['Stops'] ?? []);
+        final List<String> coordinates = [];
+
+        for (String station in stations) {
+          QuerySnapshot query = await FirebaseFirestore.instance.collection('Coordinates')
+              .where('Station', isEqualTo: station)
+              .get();
+          String? coordinate;
+          if (query.docs.isNotEmpty) {
+            coordinate= query.docs.first['Coordinates']; // Assuming 'coordinates' is a String
+          }
+          coordinates.add(coordinate ?? "Unknown"); // Add to the list
+        }
+        // Return Train object with name and stops
         return Train(
           name: data['Train Name'] ?? 'Unnamed Train',
           stations: stations,
+          coordinates: coordinates,
         );
-      }).toList();
+      }));
+
+      // Update the UI
       setState(() {
         isLoading = false;
       });
@@ -614,6 +673,7 @@ class _HomePageState extends State<HomePage> {
   late List<Widget> _pages;
   Timer? _locationTimer;
   int currentStationIndex = 0;
+  double distanceRemaining =1000.0;
 
   @override
   void initState() {
@@ -643,11 +703,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   void checkNearestStation(Position position) {
-    if (currentStationIndex < widget.selectedTrain.stations.length - 1) {
+
+    String coordinates = widget.selectedTrain.coordinates[currentStationIndex];
+    Map<String, double> result = parseCoordinates(coordinates);
+    print("Flag..............");
+    print(result["latitude"]);
+    print(result["longitude"]);
+    print(position.latitude);
+    print(position.longitude);
+    double distance = calculateDistance(position.latitude, position.longitude, result["latitude"]!, result["longitude"]!);
+    if(distance> distanceRemaining){
+      currentStationIndex++;
+      distanceRemaining = 1000;
+    }
+    else{
+      distanceRemaining = distance;
+    }
+    print("Distance");
+    print(distanceRemaining);
+    if (currentStationIndex < widget.selectedTrain.stations.length - 1 && distanceRemaining< 15) {
       final trainSocialAppState = context.findAncestorStateOfType<_TrainSocialAppState>(); // Get the state
 
       if (trainSocialAppState != null) {
-        trainSocialAppState.showNextStationNotification(widget.selectedTrain.stations[currentStationIndex + 1]); // Call the method
+        trainSocialAppState.showNextStationNotification(widget.selectedTrain.stations[currentStationIndex]); // Call the method
       }
     }
   }
