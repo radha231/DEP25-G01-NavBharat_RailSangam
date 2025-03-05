@@ -8,7 +8,6 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import './notificationPage.dart';
-
 import 'splashscreen.dart'; // Import the new splash screen
 import 'login_screen.dart'; // Import login screen
 
@@ -673,6 +672,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 
 }
 
+
 class HomePage extends StatefulWidget {
   final Train selectedTrain;
 
@@ -737,13 +737,16 @@ class _HomePageState extends State<HomePage> {
     print(distanceRemaining);
     if (currentStationIndex < widget.selectedTrain.stations.length - 1 && distanceRemaining < 15) {
       final trainSocialAppState = context.findAncestorStateOfType<_TrainSocialAppState>();
+
       if (trainSocialAppState != null) {
         currentStationIndex++;
         trainSocialAppState.showNextStationNotification(widget.selectedTrain);
+
       }
     }
 
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -877,39 +880,629 @@ class CustomTextField extends StatelessWidget {
   }
 }
 
-class TravelersPage extends StatelessWidget {
+
+class TravelersPage extends StatefulWidget {
   const TravelersPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fellow Travelers'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          return TravelerCard(
-            name: 'Traveler ${index + 1}',
-            interests: ['Photography', 'History', 'Food'],
-            destination: 'Mumbai',
-            onChat: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatPage(userId: index.toString()),
-                ),
-              );
-            },
-          );
+  _TravelersPageState createState() => _TravelersPageState();
+}
+
+class _TravelersPageState extends State<TravelersPage> {
+  // User's own data
+  final Map<String, dynamic> currentUser = {
+    'name': 'John Doe',
+    'avatar': 'https://randomuser.me/api/portraits/men/10.jpg',
+    'stories': [], // Initially empty
+  };
+
+  // Bluish gradient colors
+  final Gradient buttonGradient = LinearGradient(
+    colors: [
+      Color(0xFF5D9CEC),
+      Color(0xFF4A89DC),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // Sample data for friends
+  final List<Map<String, dynamic>> friends = [
+    {
+      'name': 'Alex Rodriguez',
+      'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
+      'stories': [
+        {
+          'image': 'https://images.unsplash.com/photo-1530789253388-582c481c54b0',
+          'caption': 'Mountain hiking adventure!',
+          'likes': 256,
+          'comments': 45,
         },
+        {
+          'image': 'https://images.unsplash.com/photo-1506744038136-46348a9d5b4d',
+          'caption': 'Sunset at the beach',
+          'likes': 378,
+          'comments': 62,
+        }
+      ]
+    },
+    {
+      'name': 'Emma Thompson',
+      'avatar': 'https://randomuser.me/api/portraits/women/2.jpg',
+      'stories': [
+        {
+          'image': 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800',
+          'caption': 'Exploring new cities',
+          'likes': 412,
+          'comments': 78,
+        }
+      ]
+    },
+    // Add more friends as needed
+  ];
+
+  // Hover state tracking
+  bool _isAddStoryHovered = false;
+  Map<String, bool> _friendHoverStates = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize hover states for friends
+    _friendHoverStates = {for (var friend in friends) friend['name']: false};
+  }
+
+  // Method to add a new story
+  void _addNewStory() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Add New Story',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16),
+              _buildStoryOption(
+                  icon: Icons.camera_alt,
+                  title: 'Take Photo',
+                  onTap: () {
+                    // Implement camera functionality
+                    Navigator.pop(context);
+                  }
+              ),
+              _buildStoryOption(
+                  icon: Icons.photo_library,
+                  title: 'Choose from Gallery',
+                  onTap: () {
+                    // Implement gallery selection
+                    Navigator.pop(context);
+                  }
+              ),
+              _buildStoryOption(
+                  icon: Icons.videocam,
+                  title: 'Record Video',
+                  onTap: () {
+                    // Implement video recording
+                    Navigator.pop(context);
+                  }
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method for story options with hover effect
+  Widget _buildStoryOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: ListTile(
+          leading: Icon(icon, color: Color(0xFF4A89DC)),
+          title: Text(title),
+        ),
       ),
     );
   }
+
+  // Method to show suggestions bottom sheet
+  void _showSuggestionsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Traveler Suggestions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16),
+              _buildSuggestionTile(
+                avatar: 'https://randomuser.me/api/portraits/men/21.jpg',
+                name: 'Nick Shelburne',
+                location: 'New York, USA',
+              ),
+              _buildSuggestionTile(
+                avatar: 'https://randomuser.me/api/portraits/women/22.jpg',
+                name: 'Brittni Lando',
+                location: 'San Francisco, USA',
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method for suggestion tiles with hover effect
+  Widget _buildSuggestionTile({
+    required String avatar,
+    required String name,
+    required String location
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundImage: NetworkImage(avatar),
+        ),
+        title: Text(name),
+        subtitle: Text(location),
+        trailing: ElevatedButton(
+          onPressed: () {},
+          child: Text('Follow'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF4A89DC),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Method to show story viewer
+  void _showStoryViewer(Map<String, dynamic> friend) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: Container(
+            width: 300,
+            height: 500,
+            child: Column(
+              children: [
+                Expanded(
+                  child: PageView.builder(
+                    itemCount: friend['stories'].length,
+                    itemBuilder: (context, index) {
+                      final story = friend['stories'][index];
+                      return Image.network(
+                        story['image'],
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    friend['name'] + "'s Stories",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Hover effect for app bar icons
+  Widget _buildHoverableIconButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    bool isToggled = false,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 200),
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isToggled ? Colors.grey.shade200 : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color),
+        ),
+      ),
+    );
+  }
+
+  // Friend story builder with hover effects
+  Widget _buildFriendStory(Map<String, dynamic> friend) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _friendHoverStates[friend['name']] = true),
+      onExit: (_) => setState(() => _friendHoverStates[friend['name']] = false),
+      child: GestureDetector(
+        onTap: () => _showStoryViewer(friend),
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          transform: Matrix4.identity()..scale(_friendHoverStates[friend['name']] == true ? 1.1 : 1.0),
+          child: Column(
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(friend['avatar']),
+                    fit: BoxFit.cover,
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _friendHoverStates[friend['name']] == true
+                        ? Color(0xFF4A89DC).withOpacity(0.7)
+                        : Color(0xFF4A89DC),
+                    width: 2,
+                  ),
+                  boxShadow: _friendHoverStates[friend['name']] == true
+                      ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                      offset: Offset(0, 3),
+                    )
+                  ]
+                      : [],
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                friend['name'].split(' ')[0],
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontWeight: _friendHoverStates[friend['name']] == true
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Your Story builder with hover effects
+  Widget _buildYourStory() {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isAddStoryHovered = true),
+      onExit: (_) => setState(() => _isAddStoryHovered = false),
+      child: GestureDetector(
+        onTap: _addNewStory,
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          transform: Matrix4.identity()..scale(_isAddStoryHovered ? 1.1 : 1.0),
+          child: Column(
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: NetworkImage(currentUser['avatar']),
+                        fit: BoxFit.cover,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _isAddStoryHovered
+                            ? Color(0xFF4A89DC).withOpacity(0.7)
+                            : Colors.grey.shade300,
+                        width: 2,
+                      ),
+                      boxShadow: _isAddStoryHovered
+                          ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: Offset(0, 3),
+                        )
+                      ]
+                          : [],
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Color(0xFF4A89DC),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 5),
+              Text(
+                'Your Story',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontWeight: _isAddStoryHovered ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  // Widget to build a traveler's post card
+  Widget _buildTravelerPostCard(Map<String, dynamic> friend, Map<String, dynamic> story) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Post Image
+          ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+            child: Image.network(
+              story['image'],
+              width: double.infinity,
+              height: 250,
+              fit: BoxFit.cover,
+            ),
+          ),
+          // Post Details
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // User Info
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundImage: NetworkImage(friend['avatar']),
+                      radius: 20,
+                    ),
+                    SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          friend['name'],
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '2 hours ago',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10),
+                // Caption
+                Text(
+                  story['caption'],
+                  style: TextStyle(
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 10),
+                // Interactions
+                Row(
+                  children: [
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          // Like functionality
+                        },
+                        child: Row(
+                          children: [
+                            Icon(Icons.favorite_border, color: Colors.grey),
+                            SizedBox(width: 5),
+                            Text('${story['likes']} Likes'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 20),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          // Comment functionality
+                        },
+                        child: Row(
+                          children: [
+                            Icon(Icons.comment_outlined, color: Colors.grey),
+                            SizedBox(width: 5),
+                            Text('${story['comments']} Comments'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: _buildHoverableIconButton(
+            icon: Icons.menu,
+            color: Colors.black,
+            onPressed: () {/* Menu functionality */}
+        ),
+        title: Text(
+          'Travelers',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          _buildHoverableIconButton(
+              icon: Icons.notifications_outlined,
+              color: Colors.black,
+              onPressed: () {/* Notifications functionality */}
+          ),
+          _buildHoverableIconButton(
+              icon: Icons.chat_bubble_outline,
+              color: Colors.black,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ChatListPage(),
+                  ),
+                );
+              }
+          ),
+          _buildHoverableIconButton(
+              icon: Icons.people_outline,
+              color: Colors.black,
+              onPressed: _showSuggestionsBottomSheet
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Friends Horizontal Scroll
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        // Your Story first
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: _buildYourStory(),
+                        ),
+                        // Other friends stories
+                        ...friends.map((friend) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: _buildFriendStory(friend),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Travelers Feed Section
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Travelers Feed',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              itemCount: friends.length,
+              itemBuilder: (context, index) {
+                final friend = friends[index];
+                return friend['stories'].isNotEmpty
+                    ? _buildTravelerPostCard(friend, friend['stories'][0])
+                    : SizedBox.shrink();
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addNewStory,
+        backgroundColor: Color(0xFF4A89DC),
+        child: Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
 }
+
+
 
 class TravelerCard extends StatelessWidget {
   final String name;
@@ -927,8 +1520,19 @@ class TravelerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16213E),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -936,14 +1540,25 @@ class TravelerCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.blue[100],
-                  child: Text(
-                    name[0],
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F3460),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFE94560),
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      name[0],
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFFE94560),
+                      ),
                     ),
                   ),
                 ),
@@ -954,19 +1569,27 @@ class TravelerCard extends StatelessWidget {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
+                          color: const Color(0xFFE94560),
                         ),
                       ),
                       Text(
                         'Traveling to $destination',
-                        style: TextStyle(
-                          color: Colors.grey[600],
+                        style: const TextStyle(
+                          color: Colors.white70,
                         ),
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: const Color(0xFFE94560),
+                  ),
+                  onPressed: () {},
                 ),
               ],
             ),
@@ -976,22 +1599,40 @@ class TravelerCard extends StatelessWidget {
               runSpacing: 8,
               children: interests.map((interest) {
                 return Chip(
-                  label: Text(interest),
-                  backgroundColor: Colors.blue[50],
+                  label: Text(
+                    interest,
+                    style: TextStyle(color: const Color(0xFFE94560)),
+                  ),
+                  backgroundColor: const Color(0xFF0F3460),
                 );
               }).toList(),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onChat,
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Start Chat'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onChat,
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Start Chat'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE94560),
+                      padding: const EdgeInsets.all(12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                IconButton(
+                  icon: Icon(
+                    Icons.favorite_border,
+                    color: const Color(0xFFE94560),
+                  ),
+                  onPressed: () {},
+                ),
+              ],
             ),
           ],
         ),
@@ -999,7 +1640,6 @@ class TravelerCard extends StatelessWidget {
     );
   }
 }
-
 class HistoryCard extends StatelessWidget {
   const HistoryCard({super.key});
 
@@ -1078,138 +1718,309 @@ class StopCard extends StatelessWidget {
   }
 }
 
-class ChatListPage extends StatelessWidget {
+
+
+class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chats'),
-      ),
-      body: ListView.builder(
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          return ListTile(
-            leading: CircleAvatar(
-              child: Text('U${index + 1}'),
-            ),
-            title: Text('Chat ${index + 1}'),
-            subtitle: const Text('Last message...'),
-            trailing: const Text('2:30 PM'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatPage(userId: index.toString()),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
+  _ChatListPageState createState() => _ChatListPageState();
 }
 
-class ChatPage extends StatelessWidget {
-  final String userId;
+class _ChatListPageState extends State<ChatListPage> {
+  // Story data (same as previous implementation)
+  final List<Map<String, dynamic>> stories = [
+    {
+      'type': 'add',
+      'name': 'Add Story',
+      'avatar': null,
+    },
+    {
+      'type': 'user',
+      'name': 'Yoga',
+      'avatar': 'https://randomuser.me/api/portraits/men/50.jpg',
+    },
+    {
+      'type': 'user',
+      'name': 'Dono',
+      'avatar': 'https://randomuser.me/api/portraits/men/51.jpg',
+    },
+    {
+      'type': 'user',
+      'name': 'Doni',
+      'avatar': 'https://randomuser.me/api/portraits/men/52.jpg',
+    },
+    {
+      'type': 'user',
+      'name': 'Random',
+      'avatar': 'https://randomuser.me/api/portraits/men/53.jpg',
+    },
+  ];
 
-  const ChatPage({super.key, required this.userId});
+  // Chat data
+  final List<Map<String, dynamic>> chats = [
+    {
+      'name': 'Rehan Wangsaff',
+      'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
+      'lastMessage': 'Ur Welcome!',
+      'time': '00.21',
+      'unread': false,
+    },
+    {
+      'name': 'Peter Parker',
+      'avatar': 'https://randomuser.me/api/portraits/men/2.jpg',
+      'lastMessage': 'Can You Come Here Today?',
+      'time': '00.21',
+      'unread': true,
+    },
+    {
+      'name': 'Bebeb',
+      'avatar': 'https://randomuser.me/api/portraits/women/1.jpg',
+      'lastMessage': 'What You Doing?',
+      'time': '00.21',
+      'unread': false,
+    },
+    {
+      'name': 'Yoga',
+      'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
+      'lastMessage': 'Sokin Sin Ngab',
+      'time': '00.21',
+      'unread': false,
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.blue[100],
-              child: Text(
-                'U$userId',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('User $userId'),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.green[700],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      body: Column(
+      backgroundColor: Colors.transparent, // Make background transparent
+      body: Stack(
         children: [
-          Expanded(
-            child: ListView.builder(
-              reverse: true,
-              padding: const EdgeInsets.all(16),
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                final bool isMe = index % 2 == 0;
-                return MessageBubble(
-                  message: 'This is message $index',
-                  isMe: isMe,
-                  time: '2:30 PM',
-                );
-              },
+          // Dimmed background (optional)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey,
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.attach_file),
-                            onPressed: () {},
+
+          // Main Chat UI
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // App Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 10
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Welcome Oji 👋',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.camera_alt),
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.notifications_outlined, color: Colors.white),
+                          onPressed: () {
+                            // Notification functionality
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.blue[900],
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.send,
+
+                  // Story Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Story',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        Text(
+                          'See All',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Story Horizontal Scroll
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: stories.map((story) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: story['type'] == 'add'
+                                      ? Colors.grey[800]
+                                      : Colors.white,
+                                  border: Border.all(
+                                    color: story['type'] == 'add'
+                                        ? Colors.transparent
+                                        : Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: story['type'] == 'add'
+                                    ? Icon(Icons.add, color: Colors.white, size: 30)
+                                    : CircleAvatar(
+                                  backgroundImage: NetworkImage(story['avatar']),
+                                ),
+                              ),
+                              SizedBox(height: 5),
+                              Text(
+                                story['name'],
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  // Chat Section
+                  Container(
+                    margin: EdgeInsets.only(top: 20),
+                    height: MediaQuery.of(context).size.height * 0.5, // Half screen height
+                    decoration: BoxDecoration(
                       color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                     ),
-                    onPressed: () {},
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 16,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Recent Chat',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () {
+                                  // Archive chat functionality
+                                },
+                                icon: Icon(Icons.archive_outlined, color: Colors.black),
+                                label: Text(
+                                  'Archive Chat',
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: chats.length,
+                            itemBuilder: (context, index) {
+                              final chat = chats[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: NetworkImage(chat['avatar']),
+                                  backgroundColor: Colors.grey[200],
+                                ),
+                                title: Text(
+                                  chat['name'],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  chat['lastMessage'],
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      chat['time'],
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (chat['unread'])
+                                      Container(
+                                        margin: EdgeInsets.only(top: 4),
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                onTap: () {
+                                  // Navigate to chat detail
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ),
+          ),
+
+          // Close Button
+          Positioned(
+            top: 40,
+            right: 16,
+            child: IconButton(
+              icon: Icon(Icons.close, color: Colors.white, size: 30),
+              onPressed: () {
+                Navigator.pop(context);
+              },
             ),
           ),
         ],
@@ -1217,60 +2028,242 @@ class ChatPage extends StatelessWidget {
     );
   }
 }
+class ChatDetailPage extends StatefulWidget {
+  final String name;
+  final String avatar;
 
-class MessageBubble extends StatelessWidget {
-  final String message;
-  final bool isMe;
-  final String time;
-
-  const MessageBubble({
-    required this.message,
-    required this.isMe,
-    required this.time,
+  const ChatDetailPage({
     super.key,
+    required this.name,
+    required this.avatar,
   });
 
   @override
+  _ChatDetailPageState createState() => _ChatDetailPageState();
+}
+
+class _ChatDetailPageState extends State<ChatDetailPage> {
+  final List<Map<String, dynamic>> messages = [
+    {
+      'text': 'Hi, I\'m heading to the mall this afternoon',
+      'isMe': false,
+      'time': '01.12',
+    },
+    {
+      'text': 'Do you wanna join with me?',
+      'isMe': false,
+      'time': '01.12',
+    },
+    {
+      'text': 'its look awesome!',
+      'isMe': true,
+      'time': '01.23',
+    },
+    {
+      'text': 'But can I bring my girlfriend? They want to go to the mall',
+      'isMe': true,
+      'time': '01.23',
+    },
+    {
+      'text': 'of course, just him',
+      'isMe': false,
+      'time': '01.34',
+    },
+    {
+      'text': 'Thanks Rehan',
+      'isMe': true,
+      'time': '01.35',
+    },
+    {
+      'text': 'Ur Welcome!',
+      'isMe': false,
+      'time': '01.38',
+    },
+  ];
+
+  final TextEditingController _messageController = TextEditingController();
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Align(
-        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.75,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: NetworkImage(widget.avatar),
+              radius: 20,
+            ),
+            SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.name,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Online',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.more_vert, color: Colors.black),
+            onPressed: () {
+              // More options functionality
+            },
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: isMe ? Colors.blue[900] : Colors.grey[200],
-            borderRadius: BorderRadius.circular(20).copyWith(
-              bottomRight: isMe ? Radius.zero : Radius.circular(20),
-              bottomLeft: isMe ? Radius.circular(20) : Radius.zero,
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Today',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                message,
-                style: TextStyle(
-                  color: isMe ? Colors.white : Colors.black,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                time,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isMe ? Colors.white70 : Colors.grey[600],
-                ),
-              ),
-            ],
+          Expanded(
+            child: ListView.builder(
+              reverse: true,
+              padding: EdgeInsets.all(16),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[messages.length - 1 - index];
+                return Align(
+                  alignment: message['isMe']
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    margin: EdgeInsets.symmetric(vertical: 5),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: message['isMe']
+                          ? Colors.blue[100]
+                          : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(20).copyWith(
+                        bottomRight: message['isMe']
+                            ? Radius.zero
+                            : Radius.circular(20),
+                        bottomLeft: message['isMe']
+                            ? Radius.circular(20)
+                            : Radius.zero,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          message['text'],
+                          style: TextStyle(
+                            color: message['isMe']
+                                ? Colors.blue[900]
+                                : Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          message['time'],
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: message['isMe']
+                                ? Colors.blue[700]
+                                : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
+          // Message Input Area
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.mic, color: Colors.blue),
+                  onPressed: () {
+                    // Voice message functionality
+                  },
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Message...',
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send, color: Colors.blue),
+                  onPressed: () {
+                    // Send message functionality
+                    if (_messageController.text.isNotEmpty) {
+                      setState(() {
+                        messages.insert(0, {
+                          'text': _messageController.text,
+                          'isMe': true,
+                          'time': DateTime.now().toString().substring(11, 16),
+                        });
+                        _messageController.clear();
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
