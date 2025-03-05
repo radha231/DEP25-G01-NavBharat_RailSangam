@@ -646,24 +646,31 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
   }
 
   // Function to show the notification (this stays here)
-  Future<void> showNextStationNotification(String stationName) async {
+  Future<void> showNextStationNotification(Train selectedTrain) async {
     print('showNextStationNotification called');
-    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'next_station_channel',
-      'Next Station Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+    if (selectedTrain.stations.isNotEmpty) {
+      String stationName = selectedTrain.stations[0];
+      const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+        'next_station_channel',
+        'Next Station Notifications',
+        importance: Importance.max,
+        priority: Priority.high,
+      );
+      const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
 
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Approaching Next Station',
-      'Next station will be: $stationName',
-      platformChannelSpecifics,
-      payload: stationName,  // Pass the station name as the payload
-    );
+      await flutterLocalNotificationsPlugin.show(
+        0,
+        'Approaching Next Station',
+        'Next station will be: $stationName',
+        platformChannelSpecifics,
+        payload: stationName,
+      );
+
+      // Remove the first station from the list
+      selectedTrain.stations.removeAt(0);
+    }
   }
+
 }
 
 class HomePage extends StatefulWidget {
@@ -720,7 +727,7 @@ class _HomePageState extends State<HomePage> {
     print(position.longitude);
     double distance = calculateDistance(position.latitude, position.longitude, result["latitude"]!, result["longitude"]!);
     if(distance> distanceRemaining){
-      currentStationIndex++;
+      // currentStationIndex++;
       distanceRemaining = 1000;
     }
     else{
@@ -728,15 +735,14 @@ class _HomePageState extends State<HomePage> {
     }
     print("Distance");
     print(distanceRemaining);
-    if (currentStationIndex < widget.selectedTrain.stations.length - 1 && distanceRemaining< 15) {
-      final trainSocialAppState = context.findAncestorStateOfType<_TrainSocialAppState>(); // Get the state
-
+    if (currentStationIndex < widget.selectedTrain.stations.length - 1 && distanceRemaining < 15) {
+      final trainSocialAppState = context.findAncestorStateOfType<_TrainSocialAppState>();
       if (trainSocialAppState != null) {
-        print("CurrentIndex: ");
-        print(currentStationIndex);
-        trainSocialAppState.showNextStationNotification(widget.selectedTrain.stations[currentStationIndex]); // Call the method
+        currentStationIndex++;
+        trainSocialAppState.showNextStationNotification(widget.selectedTrain);
       }
     }
+
   }
 
   @override
