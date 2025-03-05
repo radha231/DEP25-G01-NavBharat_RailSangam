@@ -9,6 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import './notificationPage.dart';
 
+import 'splashscreen.dart'; // Import the new splash screen
+import 'login_screen.dart'; // Import login screen
 
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -609,6 +611,10 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
     return MaterialApp(
       navigatorKey: navigatorKey, // Set the navigator key
       title: 'Train Social',
+      home: const SplashScreen(), // Set SplashScreen as the initial route
+      routes: {
+        '/login': (context) => const LoginScreen(),
+      },
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
@@ -635,12 +641,13 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
           ),
         ),
       ),
-      home: const LoginPage(),
+      // home: const LoginPage(),
     );
   }
 
   // Function to show the notification (this stays here)
   Future<void> showNextStationNotification(String stationName) async {
+    print('showNextStationNotification called');
     const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
       'next_station_channel',
       'Next Station Notifications',
@@ -725,6 +732,8 @@ class _HomePageState extends State<HomePage> {
       final trainSocialAppState = context.findAncestorStateOfType<_TrainSocialAppState>(); // Get the state
 
       if (trainSocialAppState != null) {
+        print("CurrentIndex: ");
+        print(currentStationIndex);
         trainSocialAppState.showNextStationNotification(widget.selectedTrain.stations[currentStationIndex]); // Call the method
       }
     }
