@@ -111,21 +111,6 @@ class _NotificationPageState extends State<NotificationPage> {
                                   ],
                                 ),
                               ),
-                              SizedBox(height: 8),
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  'Historical Landmark',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
