@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart'; // For opening URLs
-import './main.dart'; // Import main.dart where LoginPage is
+import 'package:url_launcher/url_launcher.dart';
+import './main.dart'; // Ensure this import is present
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -16,24 +16,35 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String _errorMessage = '';
 
-  // Function to launch IRCTC website
+  // Improved function to launch IRCTC website
   Future<void> _launchIRCTCWebsite() async {
     final Uri irctcUrl = Uri.parse('https://www.irctc.co.in/');
+
     try {
-      if (await canLaunchUrl(irctcUrl)) {
-        await launchUrl(
-            irctcUrl,
-            mode: LaunchMode.externalApplication
-        );
-      } else {
+      // First, try using launchUrl with external application mode
+      bool launched = await launchUrl(
+        irctcUrl,
+        mode: LaunchMode.externalApplication,
+      );
+
+      // If launchUrl fails, try alternative methods
+      if (!launched) {
+        // Try default launch mode
+        launched = await launchUrl(irctcUrl);
+      }
+
+      // If still not launched, show error
+      if (!launched) {
         _showSnackBar('Could not launch IRCTC website');
       }
     } catch (e) {
+      // Catch and handle any exceptions
+      print('Error launching URL: $e');
       _showSnackBar('An error occurred while launching website');
     }
   }
 
-  // Simple login validation
+  // Login method restored to navigate to LoginPage
   void _login() {
     setState(() {
       _isLoading = true;
@@ -43,11 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
     // Simple hardcoded credentials (replace with your desired logic)
     if (true || _emailController.text.trim() == 'user@example.com' &&
         _passwordController.text.trim() == 'password123') {
-      // Successful login
-      //Navigator.pushReplacementNamed(context, '/home');
+      // Successful login - navigate to LoginPage
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => LoginPage()), // Navigate to LoginPage
+        MaterialPageRoute(builder: (context) => LoginPage()), // Restored navigation
       );
     } else {
       setState(() {
@@ -60,7 +70,10 @@ class _LoginScreenState extends State<LoginScreen> {
   // Utility method to show snackbar
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 3),
+      ),
     );
   }
 
@@ -132,11 +145,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your email';
                             }
-                            // Basic email validation
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                .hasMatch(value)) {
-                              return 'Please enter a valid email';
-                            }
                             return null;
                           },
                         ),
@@ -166,6 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
+
                         if (_errorMessage.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 16.0),
@@ -197,18 +206,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : () {
                               if (_formKey.currentState!.validate()) {
-                                _login();
+                                _login(); // Restored login method call
                               }
                             },
                             style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[900],
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              backgroundColor: Colors.blue[900],
                             ),
                             child: _isLoading
                                 ? CircularProgressIndicator(color: Colors.white)
-                                : const Text(
+                                : Text(
                               'Login',
                               style: TextStyle(
                                 fontSize: 18,
@@ -219,19 +228,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Ticket Booking Button
+                        // Book Train Ticket Button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
                             onPressed: _launchIRCTCWebsite,
                             style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[900],
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              backgroundColor: Colors.green[900],
                             ),
-                            child: const Text(
+                            child: Text(
                               'Book Train Ticket',
                               style: TextStyle(
                                 fontSize: 18,
@@ -240,8 +249,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
 
+                        const SizedBox(height: 16),
                         // Register Option
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
