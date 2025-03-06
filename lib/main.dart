@@ -1326,13 +1326,13 @@ class _TravelersPageState extends State<TravelersPage> {
       'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
       'stories': [
         {
-          'image': 'https://images.unsplash.com/photo-1530789253388-582c481c54b0',
+          'image': 'assets/images/pic1.jpg',
           'caption': 'Mountain hiking adventure!',
           'likes': 256,
           'comments': 45,
         },
         {
-          'image': 'https://images.unsplash.com/photo-1506744038136-46348a9d5b4d',
+          'image': 'assets/images/pic1.jpg',
           'caption': 'Sunset at the beach',
           'likes': 378,
           'comments': 62,
@@ -1344,7 +1344,7 @@ class _TravelersPageState extends State<TravelersPage> {
       'avatar': 'https://randomuser.me/api/portraits/women/2.jpg',
       'stories': [
         {
-          'image': 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800',
+          'image': 'assets/images/pic1.jpg',
           'caption': 'Exploring new cities',
           'likes': 412,
           'comments': 78,
@@ -1443,7 +1443,7 @@ class _TravelersPageState extends State<TravelersPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Traveler Suggestions',
+                'Traveller Suggestions',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1508,7 +1508,7 @@ class _TravelersPageState extends State<TravelersPage> {
                     itemCount: friend['stories'].length,
                     itemBuilder: (context, index) {
                       final story = friend['stories'][index];
-                      return Image.network(
+                      return Image.asset(
                         story['image'],
                         fit: BoxFit.cover,
                       );
@@ -1709,8 +1709,8 @@ class _TravelersPageState extends State<TravelersPage> {
           // Post Image
           ClipRRect(
             borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-            child: Image.network(
-              story['image'],
+            child: Image.asset(
+              story['image'], // Replace with your actual image path
               width: double.infinity,
               height: 250,
               fit: BoxFit.cover,
@@ -1815,7 +1815,7 @@ class _TravelersPageState extends State<TravelersPage> {
             onPressed: () {/* Menu functionality */}
         ),
         title: Text(
-          'Travelers',
+          'Travellers',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -1883,7 +1883,7 @@ class _TravelersPageState extends State<TravelersPage> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              'Travelers Feed',
+              'Travellers Feed',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
