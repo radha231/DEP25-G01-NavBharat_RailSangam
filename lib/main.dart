@@ -462,7 +462,17 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Container(
+        decoration: const BoxDecoration(
+        gradient: LinearGradient(
+        colors: [Colors.white, Colors.grey, Colors.black],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+    ),
+    ),
+    child: Scaffold(
+    backgroundColor: Colors.transparent,
+
       body: SingleChildScrollView(
         child: SafeArea(
           child: Padding(
@@ -501,13 +511,8 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 24),
                       CustomTextField(
-                        label: 'PNR Number',
+                        label: 'Train Number',
                         prefixIcon: Icons.confirmation_number,
-                      ),
-                      const SizedBox(height: 16),
-                      CustomTextField(
-                        label: 'Full Name',
-                        prefixIcon: Icons.person,
                       ),
                       const SizedBox(height: 16),
                       if (isLoading)
@@ -539,12 +544,12 @@ class _LoginPageState extends State<LoginPage> {
                             });
                           },
                         ),
-                      const SizedBox(height: 16),
-                      CustomTextField(
-                        label: 'Your Interests',
-                        prefixIcon: Icons.interests,
-                        hint: 'e.g., Photography, History, Food',
-                      ),
+                      // const SizedBox(height: 16),
+                      // CustomTextField(
+                      //   label: 'Your Interests',
+                      //   prefixIcon: Icons.interests,
+                      //   hint: 'e.g., Photography, History, Food',
+                      // ),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
@@ -587,6 +592,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+    ),
     );
   }
 }
