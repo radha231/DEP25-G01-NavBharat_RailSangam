@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
-import 'package:google_fonts/google_fonts.dart'; // Added for unique typography
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -64,7 +63,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   children: [
                     TextSpan(
                       text: 'Welcome to\n',
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         fontSize: 30,
                         fontWeight: FontWeight.w300,
                         color: const Color(0xFF00A54F), // Saffron green from Indian flag
@@ -79,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                     TextSpan(
                       text: 'Train Social',
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.w900,
                         color: const Color(0xFFFF9933), // Saffron orange from Indian flag
@@ -94,7 +93,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                     TextSpan(
                       text: '\nApp',
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         fontSize: 30,
                         fontWeight: FontWeight.w300,
                         color: const Color(0xFF138808), // India green
