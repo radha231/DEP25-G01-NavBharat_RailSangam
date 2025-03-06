@@ -514,6 +514,7 @@ class _LoginPageState extends State<LoginPage> {
                         const CircularProgressIndicator()
                       else
                         DropdownButtonFormField2(
+                          isExpanded: true,
                           decoration: InputDecoration(
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
