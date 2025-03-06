@@ -10,8 +10,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import './notificationPage.dart';
 import 'splashscreen.dart'; // Import the new splash screen
 import 'login_screen.dart'; // Import login screen
-
-
+import 'package:classico/chatting/page/chat_page.dart';
+import 'package:classico/chatting/page/chats_page.dart';
+import 'package:classico/chatting/model/user.dart';
+import 'package:classico/chatting/model/user.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 
@@ -330,9 +332,32 @@ Future<void> main() async {
     name: 'classico-dc2a9',
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // await _initializeUsersIfEmpty();
   runApp(const TrainSocialApp());
 }
-
+// Method to initialize users if the collection is empty
+// Future<void> _initializeUsersIfEmpty() async {
+//   final firebaseApi = FirebaseApi();
+//
+//   final initialUsers = [
+//     User(
+//       idUser: '', // Will be auto-generated
+//       name: 'John Doe',
+//       urlAvatar: 'https://example.com/avatar1.jpg',
+//       lastMessageTime: DateTime.now(),
+//       email: 'john.doe@example.com',
+//     ),
+//     User(
+//       idUser: '', // Will be auto-generated
+//       name: 'Jane Smith',
+//       urlAvatar: 'https://example.com/avatar2.jpg',
+//       lastMessageTime: DateTime.now(),
+//       email: 'jane.smith@example.com',
+//     ),
+//   ];
+//
+//   await FirebaseApi.addInitialUsers(initialUsers);
+// }
 // Add this class to store train data
 class Train {
   final String name;
@@ -610,6 +635,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
     return MaterialApp(
       navigatorKey: navigatorKey, // Set the navigator key
       title: 'Train Social',
+      debugShowCheckedModeBanner: false,
       home: const SplashScreen(), // Set SplashScreen as the initial route
       routes: {
         '/login': (context) => const LoginScreen(),
@@ -695,7 +721,7 @@ class _HomePageState extends State<HomePage> {
     _pages = [
       const TravelersPage(),
       LocationInfoPage(selectedTrain: widget.selectedTrain),
-      const ChatListPage(),
+      HomeScreen(),
       const ProfilePage(),
     ];
     startLocationTracking();
@@ -741,109 +767,370 @@ class _HomePageState extends State<HomePage> {
       if (trainSocialAppState != null) {
         currentStationIndex++;
         trainSocialAppState.showNextStationNotification(widget.selectedTrain);
-
       }
     }
-
   }
-
 
   @override
   Widget build(BuildContext context) {
+    // Calculate sizes based on screen width for better responsiveness
+    final screenWidth = MediaQuery.of(context).size.width;
+    final itemWidth = screenWidth / 4; // Width allocated for each nav item
+    final selectorSize = 50.0; // Size of our squircle selector
+
+    // Calculate the left position of the selector
+    final selectorLeft = (itemWidth * _selectedIndex) + (itemWidth / 2) - (selectorSize / 2);
+
     return Scaffold(
       body: _pages[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
+      extendBody: true,
+      bottomNavigationBar: Container(
+        height: 60,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        margin: EdgeInsets.zero, // Remove all margins
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Floating selector "squircle" (between square and circle)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCirc,
+              left: selectorLeft,
+              top: 5,
+              child: Container(
+                height: selectorSize,
+                width: selectorSize,
+                decoration: BoxDecoration(
+                  color: Color(0xFFE8935E),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: Icon(
+                    _getSelectedIcon(_selectedIndex),
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+
+            // Row of icons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.group_outlined, 'Travellers'),
+                _buildNavItem(1, Icons.location_on_outlined, 'Location'),
+                _buildNavItem(2, Icons.chat_bubble_outline, 'Chats'),
+                _buildNavItem(3, Icons.person_outline, 'Profile'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
           setState(() {
             _selectedIndex = index;
           });
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.group_outlined),
-            selectedIcon: Icon(Icons.group),
-            label: 'Travelers',
+        child: Container(
+          height: 60,
+          color: Colors.transparent,
+          child: Center(
+            child: _selectedIndex == index
+                ? SizedBox(width: 20)
+                : Icon(
+              icon,
+              color: Colors.grey,
+              size: 20,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.location_on_outlined),
-            selectedIcon: Icon(Icons.location_on),
-            label: 'Location',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chats',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  IconData _getSelectedIcon(int index) {
+    switch (index) {
+      case 0:
+        return Icons.group;
+      case 1:
+        return Icons.location_on;
+      case 2:
+        return Icons.chat_bubble;
+      case 3:
+        return Icons.person;
+      default:
+        return Icons.group;
+    }
   }
 }
 
 // Update LocationInfoPage to show selected train information
-class LocationInfoPage extends StatelessWidget {
+class LocationInfoPage extends StatefulWidget {
   final Train selectedTrain;
 
   const LocationInfoPage({required this.selectedTrain, super.key});
 
+  @override
+  State<LocationInfoPage> createState() => _LocationInfoPageState();
+}
+
+class _LocationInfoPageState extends State<LocationInfoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 220,
             floating: false,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(selectedTrain.name),
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.blue[900]!,
-                      Colors.blue[700]!,
+                      Colors.blue[800]!,
+                      Colors.blue[600]!,
+                      Colors.blue[400]!,
                     ],
                   ),
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.train,
-                    size: 64,
-                    color: Colors.white,
-                  ),
+                child: Stack(
+                  children: [
+                    // Train tracks pattern
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: TrainTrackPainter(),
+                      ),
+                    ),
+                    // Simple decorative elements
+                    Positioned(
+                      top: 40,
+                      right: 30,
+                      child: Icon(
+                        Icons.location_on,
+                        size: 35,
+                        color: Colors.white.withOpacity(0.4),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 60,
+                      left: 20,
+                      child: Icon(
+                        Icons.train_rounded,
+                        size: 40,
+                        color: Colors.white.withOpacity(0.3),
+                      ),
+                    ),
+                    Positioned(
+                      top: 80,
+                      left: 120,
+                      child: Icon(
+                        Icons.public,
+                        size: 30,
+                        color: Colors.white.withOpacity(0.3),
+                      ),
+                    ),
+                    // TrainAssist quote
+                    // In the FlexibleSpaceBar background section, update the Positioned widget for the TrainAssist quote
+                    Positioned(
+                      top: 70,
+                      left: 0,
+                      right: 0,
+                      child: Column(
+                        children: [
+                          Text(
+                            "TrainAssist",
+                            style: TextStyle(
+                              fontSize: 24, // Increased from 22
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1.2,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.7), // Increased shadow opacity
+                                  offset: const Offset(1.5, 1.5), // Slightly larger offset
+                                  blurRadius: 4, // Increased blur radius
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12), // Increased from 10
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            // Add a semi-transparent background for better readability
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              "Journey smoother, destinations closer",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16, // Increased from 15
+                                fontWeight: FontWeight.w500, // Added medium weight
+                                fontStyle: FontStyle.italic,
+                                color: Colors.white, // Full opacity instead of 0.9
+                                letterSpacing: 0.5,
+                                // shadows: [
+                                //   Shadow(
+                                //     color: Colors.black.withOpacity(0.6), // Increased shadow opacity
+                                //     offset: const Offset(1, 1),
+                                //     blurRadius: 3, // Increased blur
+                                //   ),
+                                // ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14), // Increased from 12
+                          Container(
+                            width: 60, // Slightly wider
+                            height: 3, // Slightly thicker
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8), // Increased opacity
+                              borderRadius: BorderRadius.circular(1.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                const HistoryCard(),
-                const SizedBox(height: 16),
-                Text(
-                  'Upcoming Stops',
-                  style: Theme.of(context).textTheme.titleLarge,
+                // Train name and info card
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.blue[700],
+                              child: const Icon(
+                                Icons.train_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                widget.selectedTrain.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.departure_board, color: Colors.blue[700], size: 14),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Journey Information',
+                                    style: TextStyle(
+                                      color: Colors.blue[700],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'From: ${widget.selectedTrain.stations.first}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'To: ${widget.selectedTrain.stations.last}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Train ID: ${widget.selectedTrain ?? 'N/A'}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Status: On Time',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.blue[700], size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Upcoming Stops',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: selectedTrain.stations.length,
+                  itemCount: widget.selectedTrain.stations.length,
                   itemBuilder: (context, index) {
                     return StopCard(
-                      name: selectedTrain.stations[index],
-                      time: 'Estimated',
-                      distance: 'Calculating...',
+                      name: widget.selectedTrain.stations[index],
+                      time: index == 0 ? 'Current Stop' : '',
+                      distance: index == 0 ? 'Now' : '',
+                      isCurrentStop: index == 0,
                     );
                   },
                 ),
@@ -856,6 +1143,131 @@ class LocationInfoPage extends StatelessWidget {
   }
 }
 
+// Custom painter for train track pattern
+class TrainTrackPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.1)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final dashWidth = 10.0;
+    final dashSpace = 10.0;
+    final startY = size.height * 0.35;
+    final endY = size.height * 0.65;
+
+    // Draw two parallel lines
+    final path1 = Path();
+    path1.moveTo(0, startY);
+    path1.lineTo(size.width, startY);
+
+    final path2 = Path();
+    path2.moveTo(0, endY);
+    path2.lineTo(size.width, endY);
+
+    // Draw the dashed lines
+    canvas.drawPath(path1, paint);
+    canvas.drawPath(path2, paint);
+
+    // Draw vertical connectors
+    for (double i = 0; i < size.width; i += dashWidth + dashSpace) {
+      canvas.drawLine(
+        Offset(i, startY),
+        Offset(i, endY),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class StopCard extends StatelessWidget {
+  final String name;
+  final String time;
+  final String distance;
+  final bool isCurrentStop;
+
+  const StopCard({
+    required this.name,
+    required this.time,
+    required this.distance,
+    this.isCurrentStop = false,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: isCurrentStop ? 2 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: isCurrentStop
+            ? BorderSide(color: Colors.blue[700]!, width: 1)
+            : BorderSide.none,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          leading: CircleAvatar(
+            radius: 14,
+            backgroundColor: isCurrentStop ? Colors.blue[700] : Colors.grey[300],
+            child: Icon(
+              isCurrentStop ? Icons.train : Icons.train_outlined,
+              size: 14,
+              color: isCurrentStop ? Colors.white : Colors.grey[700],
+            ),
+          ),
+          title: Text(
+            name,
+            style: TextStyle(
+              fontWeight: isCurrentStop ? FontWeight.bold : FontWeight.normal,
+              fontSize: 14,
+            ),
+          ),
+          subtitle: Text(
+            'Arrival: $time',
+            style: TextStyle(
+              color: isCurrentStop ? Colors.blue[700] : Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isCurrentStop ? Colors.blue[50] : Colors.grey[100],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  distance,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: isCurrentStop ? Colors.blue[700] : Colors.black87,
+                  ),
+                ),
+                Text(
+                  isCurrentStop ? '' : '',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 10,
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 class CustomTextField extends StatelessWidget {
   final String label;
   final IconData prefixIcon;
@@ -1421,7 +1833,7 @@ class _TravelersPageState extends State<TravelersPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ChatListPage(),
+                    builder: (context) => HomeScreen(),
                   ),
                 );
               }
@@ -1492,11 +1904,11 @@ class _TravelersPageState extends State<TravelersPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addNewStory,
-        backgroundColor: Color(0xFF4A89DC),
-        child: Icon(Icons.add, color: Colors.white),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _addNewStory,
+      //   backgroundColor: Color(0xFF4A89DC),
+      //   child: Icon(Icons.add, color: Colors.white),
+      // ),
     );
   }
 
@@ -1640,83 +2052,39 @@ class TravelerCard extends StatelessWidget {
     );
   }
 }
-class HistoryCard extends StatelessWidget {
-  const HistoryCard({super.key});
+// class HistoryCard extends StatelessWidget {
+//   const HistoryCard({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Card(
+//       child: Padding(
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Row(
+//               children: [
+//                 Icon(Icons.history, color: Colors.blue[900]),
+//                 const SizedBox(width: 8),
+//                 Text(
+//                   'Historical Significance',
+//                   style: Theme.of(context).textTheme.titleLarge,
+//                 ),
+//               ],
+//             ),
+//             const SizedBox(height: 16),
+//             Text(
+//               'AI-generated historical information will appear here...',
+//               style: Theme.of(context).textTheme.bodyLarge,
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.history, color: Colors.blue[900]),
-                const SizedBox(width: 8),
-                Text(
-                  'Historical Significance',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'AI-generated historical information will appear here...',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class StopCard extends StatelessWidget {
-  final String name;
-  final String time;
-  final String distance;
-
-  const StopCard({
-    required this.name,
-    required this.time,
-    required this.distance,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: const CircleAvatar(
-          child: Icon(Icons.train),
-        ),
-        title: Text(name),
-        subtitle: Text('Arrival: $time'),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              distance,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              'ahead',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 
 
@@ -2269,240 +2637,624 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 }
 
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({Key? key}) : super(key: key);
+
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool showSettings = false;
+
+  void _showImageSourceOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Edit Profile Picture',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                // Handle gallery selection
+                Navigator.pop(context);
+                // Add image picking logic here
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                // Handle camera selection
+                Navigator.pop(context);
+                // Add camera capture logic here
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (showSettings) {
+      return AccountSettingsScreen(
+        onBack: () => setState(() => showSettings = false),
+      );
+    }
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final profileImageHeight = screenHeight * 0.55; // Adjusted to take less space
+
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text('John Doe'),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.blue[900]!,
-                      Colors.blue[700]!,
-                    ],
-                  ),
+      backgroundColor: Colors.grey[100],
+      body: Column(
+        children: [
+          // Top portion with profile image and controls
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Profile image container
+              Container(
+                height: profileImageHeight,
+                width: double.infinity,
+                child: Image.asset(
+                  'assets/images/james.jpg',
+                  fit: BoxFit.cover,
                 ),
-                child: Center(
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.white,
-                    child: Text(
-                      'JD',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[900],
-                      ),
+              ),
+
+              // Settings button (top right)
+              Positioned(
+                top: 40,
+                right: 16,
+                child: GestureDetector(
+                  onTap: () => setState(() => showSettings = true),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.settings,
+                      color: Colors.black54,
                     ),
                   ),
                 ),
               ),
-            ),
+
+              // Edit profile picture button
+              Positioned(
+                bottom: 10,
+                right: 20,
+                child: GestureDetector(
+                  onTap: _showImageSourceOptions,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.edit,
+                      color: Colors.pink,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                const JourneyCard(),
-                const SizedBox(height: 16),
-                const InterestsCard(),
-                const SizedBox(height: 16),
-                const SettingsCard(),
-              ]),
+
+          // Profile information section - now BELOW the profile image
+          Expanded(
+            child: Container(
+              color: Colors.white,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Name and status
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Marvin Watts, 25',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.pink[50],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                height: 8,
+                                width: 8,
+                                margin: const EdgeInsets.only(right: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.pink[400],
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              Text(
+                                'Online',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.pink[400],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Occupation and location
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.work_outline,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Photographer',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'New York',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 25),
+
+                    // About section
+                    const Text(
+                      'About',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'I am single, 25 years old. I love Music, Traveling & going out to play. You can find me in New York.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+
+                    // Interests section
+                    const Text(
+                      'Interests',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // Interest buttons
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _buildInterestButton('Gym & Fitness', Icons.fitness_center),
+                        _buildInterestButton('Food & Drink', Icons.restaurant),
+                        _buildInterestButton('Travel', Icons.flight),
+                        _buildInterestButton('Art', Icons.palette),
+                        _buildInterestButton('Design', Icons.design_services),
+                      ],
+                    ),
+                    const SizedBox(height: 25),
+
+                    // Sta
+                    const SizedBox(height: 15),
+
+                    // Stats display - fixed to use the correct method
+
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class JourneyCard extends StatelessWidget {
-  const JourneyCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Current Journey',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            const InfoRow(
-              icon: Icons.confirmation_number,
-              label: 'PNR',
-              value: '1234567890',
-            ),
-            const Divider(height: 24),
-            const InfoRow(
-              icon: Icons.location_on,
-              label: 'From',
-              value: 'Delhi',
-            ),
-            const Divider(height: 24),
-            const InfoRow(
-              icon: Icons.location_on_outlined,
-              label: 'To',
-              value: 'Mumbai',
-            ),
-          ],
-        ),
+  // Helper method for creating interest buttons with icons
+  Widget _buildInterestButton(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.pink[400],
+        borderRadius: BorderRadius.circular(20),
       ),
-    );
-  }
-}
-
-class InterestsCard extends StatelessWidget {
-  const InterestsCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Your Interests',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                'Photography',
-                'History',
-                'Food',
-                'Culture',
-                'Architecture',
-                'Nature',
-              ].map((interest) {
-                return Chip(
-                  label: Text(interest),
-                  backgroundColor: Colors.blue[50],
-                  deleteIcon: const Icon(Icons.close, size: 18),
-                  onDeleted: () {},
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.add),
-              label: const Text('Add Interest'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class SettingsCard extends StatelessWidget {
-  const SettingsCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('Notifications'),
-            trailing: Switch(
-              value: true,
-              onChanged: (value) {},
+          Icon(
+            icon,
+            color: Colors.white,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
             ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.lock),
-            title: const Text('Privacy'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.help),
-            title: const Text('Help & Support'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: Icon(Icons.logout, color: Colors.red[700]),
-            title: Text(
-              'Logout',
-              style: TextStyle(
-                color: Colors.red[700],
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            onTap: () {},
           ),
         ],
       ),
     );
   }
-}
 
-class InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+  // Helper method for creating stat items
+  Widget _buildStatItem(String value, String label) {
+    return Column(
       children: [
-        Icon(icon, color: Colors.grey[600]),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-              ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        Text(
+          value,
+
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
+          ),
         ),
       ],
+    );
+  }
+}
+
+// Keeping the rest of the classes unchanged
+class InterestButton extends StatelessWidget {
+  final String label;
+  final Color? color;
+
+  const InterestButton({
+    Key? key,
+    required this.label,
+    this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: color ?? Colors.blue,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+class AccountSettingsScreen extends StatefulWidget {
+  final VoidCallback onBack;
+
+  const AccountSettingsScreen({
+    Key? key,
+    required this.onBack,
+  }) : super(key: key);
+
+  @override
+  _AccountSettingsScreenState createState() => _AccountSettingsScreenState();
+}
+
+class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
+  bool notificationsEnabled = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.blue[50], // Changed to light blue
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: widget.onBack,
+        ),
+        title: const Text(
+          'Settings',
+          style: TextStyle(color: Colors.black),
+        ),
+        centerTitle: true,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: ListView(
+          children: [
+            const SizedBox(height: 10),
+
+            // Account section
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Account',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            // Profile settings - using blue colors now
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.blue[400],
+                ),
+              ),
+              title: const Text('Personal Information'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+
+            // Privacy settings - using blue colors now
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock,
+                  color: Colors.blue[600],
+                ),
+              ),
+              title: const Text('Privacy'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+
+            // Account security - using blue colors now
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.security,
+                  color: Colors.blue[400],
+                ),
+              ),
+              title: const Text('Security'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+
+            const Divider(),
+
+            // Notifications section
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Notifications',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            // Notification toggle - changed to blue
+            SwitchListTile(
+              title: const Text('Push Notifications'),
+              subtitle: Text(
+                notificationsEnabled
+                    ? 'You will receive notifications'
+                    : 'You will not receive notifications',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 13,
+                ),
+              ),
+              value: notificationsEnabled,
+              activeColor: Colors.blue[600], // Changed to blue
+              onChanged: (value) {
+                setState(() {
+                  notificationsEnabled = value;
+                });
+              },
+            ),
+
+            // Email notifications
+            ListTile(
+              title: const Text('Email Notifications'),
+              subtitle: Text(
+                'Manage email preferences',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 13,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+
+            const Divider(),
+
+            // Other settings section
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Other',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            // Help and support - using blue colors now
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.help_outline,
+                  color: Colors.blue[400],
+                ),
+              ),
+              title: const Text('Help & Support'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+
+            // About - using blue colors now
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.info_outline,
+                  color: Colors.blue[600],
+                ),
+              ),
+              title: const Text('About'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+
+            const SizedBox(height: 10),
+            const Divider(),
+
+            // Logout button - kept red for better visibility
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: GestureDetector(
+                onTap: () {
+                  // Handle logout
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.logout,
+                        color: Colors.red[400],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'Log Out',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
     );
   }
 }
