@@ -27,38 +27,38 @@ final User currentUser = User(
 // USERS
 final User greg = User(
   id: 1,
-  name: 'Greg',
-  avatar: 'assets/images/olivia.jpg',
+  name: 'Anirudh',
+  avatar: 'assets/images/olivia.jpeg',
 );
 final User james = User(
   id: 2,
-  name: 'James',
-  avatar: 'assets/images/james.jpg',
+  name: 'Krishna',
+  avatar: 'assets/images/james.jpeg',
 );
 final User john = User(
   id: 3,
-  name: 'John',
-  avatar: 'assets/images/john.jpg',
+  name: 'Mudit',
+  avatar: 'assets/images/john.jpeg',
 );
 final User olivia = User(
   id: 4,
-  name: 'Olivia',
-  avatar: 'assets/images/greg.jpg',
+  name: 'Radha',
+  avatar: 'assets/images/greg.jpeg',
 );
 final User sam = User(
   id: 5,
-  name: 'Sam',
-  avatar: 'assets/images/sam.jpg',
+  name: 'Nishant',
+  avatar: 'assets/images/james.jpeg',
 );
 final User sophia = User(
   id: 6,
-  name: 'Sophia',
-  avatar: 'assets/images/sophia.jpg',
+  name: 'Khushboo',
+  avatar: 'assets/images/sophia.jpeg',
 );
 final User steven = User(
   id: 7,
-  name: 'Steven',
-  avatar: 'assets/images/steven.jpg',
+  name: 'Rakshit',
+  avatar: 'assets/images/steven.jpeg',
 );
 
 // FAVORITE CONTACTS
