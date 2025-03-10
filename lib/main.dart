@@ -363,7 +363,9 @@ class Train {
   final String name;
   final List<String> stations;
   final List<String> coordinates;
-  Train({required this.name, required this.stations, required this.coordinates});
+  final List<String> coaches;
+  final String train_no;
+  Train({required this.name, required this.stations, required this.coordinates, required this.coaches, required this.train_no});
 }
 
 // Add this class to handle location services
@@ -408,57 +410,18 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String? selectedTrain;
+  Train? selectedTrain;
   List<Train> trains = [];
-  bool isLoading = true;
-
+  bool isLoading = false;
+  bool showCoachDropdown = false;
+  String? selectedCoach;
+  String? travelDate;
   @override
   void initState() {
     super.initState();
-    loadTrains();
   }
-
-  Future<void> loadTrains() async {
-    try {
-      // Reference to the 'Trains' collection
-      final trainCollection = FirebaseFirestore.instance.collection('Trains');
-      final snapshot = await trainCollection.get();
-
-      // Convert snapshot documents to Train objects
-      trains = await Future.wait(snapshot.docs.map((doc) async{
-        final data = doc.data();
-
-        // Safely cast the 'Stops' field to a List<String>
-        final List<String> stations = List<String>.from(data['Stops'] ?? []);
-        final List<String> coordinates = [];
-
-        for (String station in stations) {
-          QuerySnapshot query = await FirebaseFirestore.instance.collection('Coordinates')
-              .where('Station', isEqualTo: station)
-              .get();
-          String? coordinate;
-          if (query.docs.isNotEmpty) {
-            coordinate= query.docs.first['Coordinates']; // Assuming 'coordinates' is a String
-          }
-          coordinates.add(coordinate ?? "Unknown"); // Add to the list
-        }
-        // Return Train object with name and stops
-        return Train(
-          name: data['Train Name'] ?? 'Unnamed Train',
-          stations: stations,
-          coordinates: coordinates,
-        );
-      }));
-
-      // Update the UI
-      setState(() {
-        isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading trains: $e');
-      setState(() => isLoading = false);
-    }
-  }
+  String trainNumberInput = "";
+  String errorMessage = "";
 
   @override
   Widget build(BuildContext context) {
@@ -501,68 +464,96 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 24),
                       CustomTextField(
-                        label: 'PNR Number',
+                        label: 'Train Number',
                         prefixIcon: Icons.confirmation_number,
+                        onChanged: (value) {
+                          setState(() {
+                            trainNumberInput = value;
+                          });
+                        },
                       ),
-                      const SizedBox(height: 16),
-                      CustomTextField(
-                        label: 'Full Name',
-                        prefixIcon: Icons.person,
-                      ),
-                      const SizedBox(height: 16),
-                      if (isLoading)
-                        const CircularProgressIndicator()
-                      else
-                        DropdownButtonFormField2(
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          hint: const Text('Select your train'),
-                          value: selectedTrain,
-                          items: trains
-                              .map((train) => DropdownMenuItem(
-                            value: train.name,
-                            child: Text(train.name),
-                          ))
-                              .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedTrain = value as String;
-                            });
-                          },
-                        ),
                       const SizedBox(height: 16),
                       CustomTextField(
                         label: 'Your Interests',
                         prefixIcon: Icons.interests,
                         hint: 'e.g., Photography, History, Food',
                       ),
+                      if (errorMessage.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            errorMessage,
+                            style: TextStyle(color: Colors.red, fontSize: 14),
+                          ),
+                        ),
                       const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
                         height: 56,
                         child: ElevatedButton(
-                          onPressed: selectedTrain == null
-                              ? null
-                              : () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => HomePage(
-                                  selectedTrain: trains.firstWhere(
-                                          (train) =>
-                                      train.name == selectedTrain),
-                                ),
-                              ),
-                            );
+                          onPressed: () async {
+                            if (trainNumberInput.isEmpty) {
+                              setState(() {
+                                errorMessage = 'Please enter a train number';
+                              });
+                              return;
+                            }
+
+                            setState(() {
+                              isLoading = true;
+                              errorMessage = '';
+                            });
+
+                            try {
+                              final querySnapshot = await FirebaseFirestore.instance
+                                  .collection('Trains')
+                                  .where('Train no', isEqualTo: trainNumberInput)
+                                  .limit(1)
+                                  .get();
+                              print(trainNumberInput);
+                              if (querySnapshot.docs.isNotEmpty) {
+                                final data = querySnapshot.docs.first.data();
+
+                                final List<String> stations = List<String>.from(data['Stops'] ?? []);
+                                final List<String> coordinates = [];
+                                for (String station in stations) {
+                                  QuerySnapshot query = await FirebaseFirestore.instance
+                                      .collection('Coordinates')
+                                      .where('Station', isEqualTo: station)
+                                      .get();
+
+                                  String? coordinate;
+                                  if (query.docs.isNotEmpty) {
+                                    coordinate = query.docs.first['Coordinates'];
+                                  }
+                                  coordinates.add(coordinate ?? "Unknown");
+                                }
+
+                                final List<String> coaches = List<String>.from(data['Coaches'] ?? []);
+
+                                setState(() {
+                                  selectedTrain = Train(
+                                    name: data['Train Name'] ?? 'Unnamed Train',
+                                    train_no: data['Train no'] ?? 'Unknown Train Number',
+                                    stations: stations,
+                                    coordinates: coordinates,
+                                    coaches: coaches,
+                                  );
+                                  isLoading = false;
+                                  showCoachDropdown = true;
+                                });
+                              } else {
+                                setState(() {
+                                  errorMessage = 'Train number not found. Please check again.';
+                                  isLoading = false;
+                                });
+                              }
+                            } catch (e) {
+                              setState(() {
+                                errorMessage = 'Error fetching train data. Please try again.';
+                                isLoading = false;
+                              });
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
@@ -570,8 +561,10 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             backgroundColor: Colors.blue[900],
                           ),
-                          child: const Text(
-                            'Start Journey',
+                          child: isLoading
+                              ? CircularProgressIndicator(color: Colors.white)
+                              : Text(
+                            'Get Coaches',
                             style: TextStyle(
                               fontSize: 18,
                               color: Colors.white,
@@ -579,6 +572,88 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
+                      if (showCoachDropdown && selectedTrain != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                decoration: InputDecoration(
+                                  labelText: 'Select Your Coach',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: selectedTrain!.coaches
+                                    .map((coach) => DropdownMenuItem(
+                                  value: coach,
+                                  child: Text(coach),
+                                ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedCoach = value;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: TextEditingController(text: travelDate),
+                                readOnly: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Select Date of Travel',
+                                  prefixIcon: Icon(Icons.calendar_today),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onTap: () async {
+                                  DateTime? pickedDate = await showDatePicker(
+                                    context: context,
+                                    initialDate: DateTime.now(),
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (pickedDate != null) {
+                                    setState(() {
+                                      travelDate = "${pickedDate.day}-${pickedDate.month}-${pickedDate.year}";
+                                    });
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed: (selectedCoach == null || (travelDate?.isEmpty ?? true))
+                                      ? null
+                                      : () {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => HomePage(selectedTrain: selectedTrain!),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                  child: Text(
+                                    'Start Journey',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1273,11 +1348,13 @@ class CustomTextField extends StatelessWidget {
   final String label;
   final IconData prefixIcon;
   final String? hint;
+  final Function(String)? onChanged; // Added onChanged callback
 
   const CustomTextField({
     required this.label,
     required this.prefixIcon,
     this.hint,
+    this.onChanged,
     super.key,
   });
 
@@ -1288,7 +1365,11 @@ class CustomTextField extends StatelessWidget {
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(prefixIcon),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
+      onChanged: onChanged, // Added onChanged to handle user input
     );
   }
 }
@@ -1304,8 +1385,8 @@ class TravelersPage extends StatefulWidget {
 class _TravelersPageState extends State<TravelersPage> {
   // User's own data
   final Map<String, dynamic> currentUser = {
-    'name': 'Puneet',
-    'avatar': 'assets/images/sam.jpeg',
+    'name': 'John Doe',
+    'avatar': 'https://randomuser.me/api/portraits/men/10.jpg',
     'stories': [], // Initially empty
   };
 
@@ -1322,14 +1403,14 @@ class _TravelersPageState extends State<TravelersPage> {
   // Sample data for friends
   final List<Map<String, dynamic>> friends = [
     {
-      'name': 'Rakshit',
-      'avatar': 'assets/images/steven.jpeg',
+      'name': 'Alex Rodriguez',
+      'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
       'stories': [
         {
           'image': 'assets/images/pic1.jpg',
-          'caption': 'Amazing Train View',
-          'likes': 25,
-          'comments': 4,
+          'caption': 'Mountain hiking adventure!',
+          'likes': 256,
+          'comments': 45,
         },
         {
           'image': 'assets/images/pic1.jpg',
@@ -1340,14 +1421,14 @@ class _TravelersPageState extends State<TravelersPage> {
       ]
     },
     {
-      'name': 'Nishant',
-      'avatar': 'assets/images/john.jpeg',
+      'name': 'Emma Thompson',
+      'avatar': 'https://randomuser.me/api/portraits/women/2.jpg',
       'stories': [
         {
           'image': 'assets/images/pic1.jpg',
-          'caption': 'Exploring new views from train',
-          'likes': 41,
-          'comments': 7,
+          'caption': 'Exploring new cities',
+          'likes': 412,
+          'comments': 78,
         }
       ]
     },
@@ -1451,14 +1532,14 @@ class _TravelersPageState extends State<TravelersPage> {
               ),
               SizedBox(height: 16),
               _buildSuggestionTile(
-                avatar: 'assets/images/sophia.jpeg',
-                name: 'Radha',
-                location: 'Haryana,India',
+                avatar: 'https://randomuser.me/api/portraits/men/21.jpg',
+                name: 'Nick Shelburne',
+                location: 'New York, USA',
               ),
               _buildSuggestionTile(
-                avatar: 'assets/images/greg.jpeg',
-                name: 'Nitika',
-                location: 'Noida,India',
+                avatar: 'https://randomuser.me/api/portraits/women/22.jpg',
+                name: 'Brittni Lando',
+                location: 'San Francisco, USA',
               ),
             ],
           ),
@@ -1477,7 +1558,7 @@ class _TravelersPageState extends State<TravelersPage> {
       cursor: SystemMouseCursors.click,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundImage: AssetImage(avatar),
+          backgroundImage: NetworkImage(avatar),
         ),
         title: Text(name),
         subtitle: Text(location),
@@ -1575,7 +1656,7 @@ class _TravelersPageState extends State<TravelersPage> {
                 height: 70,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage(friend['avatar']),
+                    image: NetworkImage(friend['avatar']),
                     fit: BoxFit.cover,
                   ),
                   shape: BoxShape.circle,
@@ -1635,7 +1716,7 @@ class _TravelersPageState extends State<TravelersPage> {
                     height: 70,
                     decoration: BoxDecoration(
                       image: DecorationImage(
-                        image: AssetImage(currentUser['avatar']),
+                        image: NetworkImage(currentUser['avatar']),
                         fit: BoxFit.cover,
                       ),
                       shape: BoxShape.circle,
@@ -1726,7 +1807,7 @@ class _TravelersPageState extends State<TravelersPage> {
                 Row(
                   children: [
                     CircleAvatar(
-                      backgroundImage: AssetImage(friend['avatar']),
+                      backgroundImage: NetworkImage(friend['avatar']),
                       radius: 20,
                     ),
                     SizedBox(width: 10),
@@ -2088,555 +2169,555 @@ class TravelerCard extends StatelessWidget {
 
 
 
-//
-// class ChatListPage extends StatefulWidget {
-//   const ChatListPage({super.key});
-//
-//   @override
-//   _ChatListPageState createState() => _ChatListPageState();
-// }
-//
-// class _ChatListPageState extends State<ChatListPage> {
-//   // Story data (same as previous implementation)
-//   final List<Map<String, dynamic>> stories = [
-//     {
-//       'type': 'add',
-//       'name': 'Add Story',
-//       'avatar': null,
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Yoga',
-//       'avatar': 'https://randomuser.me/api/portraits/men/50.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Dono',
-//       'avatar': 'https://randomuser.me/api/portraits/men/51.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Doni',
-//       'avatar': 'https://randomuser.me/api/portraits/men/52.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Random',
-//       'avatar': 'https://randomuser.me/api/portraits/men/53.jpg',
-//     },
-//   ];
-//
-//   // Chat data
-//   final List<Map<String, dynamic>> chats = [
-//     {
-//       'name': 'Rehan Wangsaff',
-//       'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
-//       'lastMessage': 'Ur Welcome!',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//     {
-//       'name': 'Peter Parker',
-//       'avatar': 'https://randomuser.me/api/portraits/men/2.jpg',
-//       'lastMessage': 'Can You Come Here Today?',
-//       'time': '00.21',
-//       'unread': true,
-//     },
-//     {
-//       'name': 'Bebeb',
-//       'avatar': 'https://randomuser.me/api/portraits/women/1.jpg',
-//       'lastMessage': 'What You Doing?',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//     {
-//       'name': 'Yoga',
-//       'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
-//       'lastMessage': 'Sokin Sin Ngab',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//   ];
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.transparent, // Make background transparent
-//       body: Stack(
-//         children: [
-//           // Dimmed background (optional)
-//           Positioned.fill(
-//             child: Container(
-//               color: Colors.black.withOpacity(0.7),
-//             ),
-//           ),
-//
-//           // Main Chat UI
-//           Positioned(
-//             bottom: 0,
-//             left: 0,
-//             right: 0,
-//             child: Container(
-//               decoration: BoxDecoration(
-//                 color: Colors.black,
-//                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-//               ),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   // App Bar
-//                   Padding(
-//                     padding: const EdgeInsets.symmetric(
-//                         horizontal: 16.0,
-//                         vertical: 10
-//                     ),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           'Welcome Oji 👋',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontWeight: FontWeight.bold,
-//                             fontSize: 18,
-//                           ),
-//                         ),
-//                         IconButton(
-//                           icon: Icon(Icons.notifications_outlined, color: Colors.white),
-//                           onPressed: () {
-//                             // Notification functionality
-//                           },
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//
-//                   // Story Section
-//                   Padding(
-//                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           'Story',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontWeight: FontWeight.bold,
-//                             fontSize: 18,
-//                           ),
-//                         ),
-//                         Text(
-//                           'See All',
-//                           style: TextStyle(
-//                             color: Colors.white54,
-//                             fontSize: 14,
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//
-//                   // Story Horizontal Scroll
-//                   SingleChildScrollView(
-//                     scrollDirection: Axis.horizontal,
-//                     padding: EdgeInsets.symmetric(horizontal: 16),
-//                     child: Row(
-//                       children: stories.map((story) {
-//                         return Padding(
-//                           padding: const EdgeInsets.only(right: 10),
-//                           child: Column(
-//                             children: [
-//                               Container(
-//                                 width: 60,
-//                                 height: 60,
-//                                 decoration: BoxDecoration(
-//                                   shape: BoxShape.circle,
-//                                   color: story['type'] == 'add'
-//                                       ? Colors.grey[800]
-//                                       : Colors.white,
-//                                   border: Border.all(
-//                                     color: story['type'] == 'add'
-//                                         ? Colors.transparent
-//                                         : Colors.white,
-//                                     width: 2,
-//                                   ),
-//                                 ),
-//                                 child: story['type'] == 'add'
-//                                     ? Icon(Icons.add, color: Colors.white, size: 30)
-//                                     : CircleAvatar(
-//                                   backgroundImage: NetworkImage(story['avatar']),
-//                                 ),
-//                               ),
-//                               SizedBox(height: 5),
-//                               Text(
-//                                 story['name'],
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontSize: 12,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         );
-//                       }).toList(),
-//                     ),
-//                   ),
-//
-//                   // Chat Section
-//                   Container(
-//                     margin: EdgeInsets.only(top: 20),
-//                     height: MediaQuery.of(context).size.height * 0.5, // Half screen height
-//                     decoration: BoxDecoration(
-//                       color: Colors.white,
-//                       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-//                     ),
-//                     child: Column(
-//                       children: [
-//                         Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                             horizontal: 16.0,
-//                             vertical: 16,
-//                           ),
-//                           child: Row(
-//                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                             children: [
-//                               Text(
-//                                 'Recent Chat',
-//                                 style: TextStyle(
-//                                   color: Colors.black,
-//                                   fontWeight: FontWeight.bold,
-//                                   fontSize: 18,
-//                                 ),
-//                               ),
-//                               TextButton.icon(
-//                                 onPressed: () {
-//                                   // Archive chat functionality
-//                                 },
-//                                 icon: Icon(Icons.archive_outlined, color: Colors.black),
-//                                 label: Text(
-//                                   'Archive Chat',
-//                                   style: TextStyle(color: Colors.black),
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                         Expanded(
-//                           child: ListView.builder(
-//                             itemCount: chats.length,
-//                             itemBuilder: (context, index) {
-//                               final chat = chats[index];
-//                               return ListTile(
-//                                 leading: CircleAvatar(
-//                                   backgroundImage: NetworkImage(chat['avatar']),
-//                                   backgroundColor: Colors.grey[200],
-//                                 ),
-//                                 title: Text(
-//                                   chat['name'],
-//                                   style: TextStyle(
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 subtitle: Text(
-//                                   chat['lastMessage'],
-//                                   style: TextStyle(
-//                                     color: Colors.grey,
-//                                   ),
-//                                 ),
-//                                 trailing: Column(
-//                                   mainAxisAlignment: MainAxisAlignment.center,
-//                                   crossAxisAlignment: CrossAxisAlignment.end,
-//                                   children: [
-//                                     Text(
-//                                       chat['time'],
-//                                       style: TextStyle(
-//                                         color: Colors.grey,
-//                                         fontSize: 12,
-//                                       ),
-//                                     ),
-//                                     if (chat['unread'])
-//                                       Container(
-//                                         margin: EdgeInsets.only(top: 4),
-//                                         width: 10,
-//                                         height: 10,
-//                                         decoration: BoxDecoration(
-//                                           color: Colors.blue,
-//                                           shape: BoxShape.circle,
-//                                         ),
-//                                       ),
-//                                   ],
-//                                 ),
-//                                 onTap: () {
-//                                   // Navigate to chat detail
-//                                 },
-//                               );
-//                             },
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           // Close Button
-//           Positioned(
-//             top: 40,
-//             right: 16,
-//             child: IconButton(
-//               icon: Icon(Icons.close, color: Colors.white, size: 30),
-//               onPressed: () {
-//                 Navigator.pop(context);
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-// class ChatDetailPage extends StatefulWidget {
-//   final String name;
-//   final String avatar;
-//
-//   const ChatDetailPage({
-//     super.key,
-//     required this.name,
-//     required this.avatar,
-//   });
-//
-//   @override
-//   _ChatDetailPageState createState() => _ChatDetailPageState();
-// }
-//
-// class _ChatDetailPageState extends State<ChatDetailPage> {
-//   final List<Map<String, dynamic>> messages = [
-//     {
-//       'text': 'Hi, I\'m heading to the mall this afternoon',
-//       'isMe': false,
-//       'time': '01.12',
-//     },
-//     {
-//       'text': 'Do you wanna join with me?',
-//       'isMe': false,
-//       'time': '01.12',
-//     },
-//     {
-//       'text': 'its look awesome!',
-//       'isMe': true,
-//       'time': '01.23',
-//     },
-//     {
-//       'text': 'But can I bring my girlfriend? They want to go to the mall',
-//       'isMe': true,
-//       'time': '01.23',
-//     },
-//     {
-//       'text': 'of course, just him',
-//       'isMe': false,
-//       'time': '01.34',
-//     },
-//     {
-//       'text': 'Thanks Rehan',
-//       'isMe': true,
-//       'time': '01.35',
-//     },
-//     {
-//       'text': 'Ur Welcome!',
-//       'isMe': false,
-//       'time': '01.38',
-//     },
-//   ];
-//
-//   final TextEditingController _messageController = TextEditingController();
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       appBar: AppBar(
-//         backgroundColor: Colors.transparent,
-//         elevation: 0,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.black),
-//           onPressed: () => Navigator.pop(context),
-//         ),
-//         title: Row(
-//           children: [
-//             CircleAvatar(
-//               backgroundImage: NetworkImage(widget.avatar),
-//               radius: 20,
-//             ),
-//             SizedBox(width: 10),
-//             Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   widget.name,
-//                   style: TextStyle(
-//                     color: Colors.black,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//                 Text(
-//                   'Online',
-//                   style: TextStyle(
-//                     color: Colors.green,
-//                     fontSize: 12,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//         actions: [
-//           IconButton(
-//             icon: Icon(Icons.more_vert, color: Colors.black),
-//             onPressed: () {
-//               // More options functionality
-//             },
-//           ),
-//         ],
-//       ),
-//       body: Column(
-//         children: [
-//           Padding(
-//             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-//             child: Row(
-//               mainAxisAlignment: MainAxisAlignment.center,
-//               children: [
-//                 Container(
-//                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-//                   decoration: BoxDecoration(
-//                     color: Colors.grey[200],
-//                     borderRadius: BorderRadius.circular(20),
-//                   ),
-//                   child: Text(
-//                     'Today',
-//                     style: TextStyle(
-//                       color: Colors.grey,
-//                       fontSize: 12,
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//           Expanded(
-//             child: ListView.builder(
-//               reverse: true,
-//               padding: EdgeInsets.all(16),
-//               itemCount: messages.length,
-//               itemBuilder: (context, index) {
-//                 final message = messages[messages.length - 1 - index];
-//                 return Align(
-//                   alignment: message['isMe']
-//                       ? Alignment.centerRight
-//                       : Alignment.centerLeft,
-//                   child: Container(
-//                     margin: EdgeInsets.symmetric(vertical: 5),
-//                     padding: EdgeInsets.symmetric(
-//                       horizontal: 16,
-//                       vertical: 10,
-//                     ),
-//                     decoration: BoxDecoration(
-//                       color: message['isMe']
-//                           ? Colors.blue[100]
-//                           : Colors.grey[200],
-//                       borderRadius: BorderRadius.circular(20).copyWith(
-//                         bottomRight: message['isMe']
-//                             ? Radius.zero
-//                             : Radius.circular(20),
-//                         bottomLeft: message['isMe']
-//                             ? Radius.circular(20)
-//                             : Radius.zero,
-//                       ),
-//                     ),
-//                     child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.end,
-//                       children: [
-//                         Text(
-//                           message['text'],
-//                           style: TextStyle(
-//                             color: message['isMe']
-//                                 ? Colors.blue[900]
-//                                 : Colors.black,
-//                           ),
-//                         ),
-//                         SizedBox(height: 4),
-//                         Text(
-//                           message['time'],
-//                           style: TextStyle(
-//                             fontSize: 10,
-//                             color: message['isMe']
-//                                 ? Colors.blue[700]
-//                                 : Colors.grey[600],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 );
-//               },
-//             ),
-//           ),
-//           // Message Input Area
-//           Container(
-//             padding: EdgeInsets.all(16),
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: Colors.grey.withOpacity(0.2),
-//                   spreadRadius: 1,
-//                   blurRadius: 5,
-//                 ),
-//               ],
-//             ),
-//             child: Row(
-//               children: [
-//                 IconButton(
-//                   icon: Icon(Icons.mic, color: Colors.blue),
-//                   onPressed: () {
-//                     // Voice message functionality
-//                   },
-//                 ),
-//                 Expanded(
-//                   child: TextField(
-//                     controller: _messageController,
-//                     decoration: InputDecoration(
-//                       hintText: 'Message...',
-//                       border: InputBorder.none,
-//                       contentPadding: EdgeInsets.symmetric(horizontal: 10),
-//                     ),
-//                   ),
-//                 ),
-//                 IconButton(
-//                   icon: Icon(Icons.send, color: Colors.blue),
-//                   onPressed: () {
-//                     // Send message functionality
-//                     if (_messageController.text.isNotEmpty) {
-//                       setState(() {
-//                         messages.insert(0, {
-//                           'text': _messageController.text,
-//                           'isMe': true,
-//                           'time': DateTime.now().toString().substring(11, 16),
-//                         });
-//                         _messageController.clear();
-//                       });
-//                     }
-//                   },
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
+
+class ChatListPage extends StatefulWidget {
+  const ChatListPage({super.key});
+
+  @override
+  _ChatListPageState createState() => _ChatListPageState();
+}
+
+class _ChatListPageState extends State<ChatListPage> {
+  // Story data (same as previous implementation)
+  final List<Map<String, dynamic>> stories = [
+    {
+      'type': 'add',
+      'name': 'Add Story',
+      'avatar': null,
+    },
+    {
+      'type': 'user',
+      'name': 'Yoga',
+      'avatar': 'https://randomuser.me/api/portraits/men/50.jpg',
+    },
+    {
+      'type': 'user',
+      'name': 'Dono',
+      'avatar': 'https://randomuser.me/api/portraits/men/51.jpg',
+    },
+    {
+      'type': 'user',
+      'name': 'Doni',
+      'avatar': 'https://randomuser.me/api/portraits/men/52.jpg',
+    },
+    {
+      'type': 'user',
+      'name': 'Random',
+      'avatar': 'https://randomuser.me/api/portraits/men/53.jpg',
+    },
+  ];
+
+  // Chat data
+  final List<Map<String, dynamic>> chats = [
+    {
+      'name': 'Rehan Wangsaff',
+      'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
+      'lastMessage': 'Ur Welcome!',
+      'time': '00.21',
+      'unread': false,
+    },
+    {
+      'name': 'Peter Parker',
+      'avatar': 'https://randomuser.me/api/portraits/men/2.jpg',
+      'lastMessage': 'Can You Come Here Today?',
+      'time': '00.21',
+      'unread': true,
+    },
+    {
+      'name': 'Bebeb',
+      'avatar': 'https://randomuser.me/api/portraits/women/1.jpg',
+      'lastMessage': 'What You Doing?',
+      'time': '00.21',
+      'unread': false,
+    },
+    {
+      'name': 'Yoga',
+      'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
+      'lastMessage': 'Sokin Sin Ngab',
+      'time': '00.21',
+      'unread': false,
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent, // Make background transparent
+      body: Stack(
+        children: [
+          // Dimmed background (optional)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
+            ),
+          ),
+
+          // Main Chat UI
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // App Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 10
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Welcome Oji 👋',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.notifications_outlined, color: Colors.white),
+                          onPressed: () {
+                            // Notification functionality
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Story Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Story',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        Text(
+                          'See All',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Story Horizontal Scroll
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: stories.map((story) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: story['type'] == 'add'
+                                      ? Colors.grey[800]
+                                      : Colors.white,
+                                  border: Border.all(
+                                    color: story['type'] == 'add'
+                                        ? Colors.transparent
+                                        : Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: story['type'] == 'add'
+                                    ? Icon(Icons.add, color: Colors.white, size: 30)
+                                    : CircleAvatar(
+                                  backgroundImage: NetworkImage(story['avatar']),
+                                ),
+                              ),
+                              SizedBox(height: 5),
+                              Text(
+                                story['name'],
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  // Chat Section
+                  Container(
+                    margin: EdgeInsets.only(top: 20),
+                    height: MediaQuery.of(context).size.height * 0.5, // Half screen height
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 16,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Recent Chat',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () {
+                                  // Archive chat functionality
+                                },
+                                icon: Icon(Icons.archive_outlined, color: Colors.black),
+                                label: Text(
+                                  'Archive Chat',
+                                  style: TextStyle(color: Colors.black),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: chats.length,
+                            itemBuilder: (context, index) {
+                              final chat = chats[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: NetworkImage(chat['avatar']),
+                                  backgroundColor: Colors.grey[200],
+                                ),
+                                title: Text(
+                                  chat['name'],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  chat['lastMessage'],
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      chat['time'],
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (chat['unread'])
+                                      Container(
+                                        margin: EdgeInsets.only(top: 4),
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                onTap: () {
+                                  // Navigate to chat detail
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Close Button
+          Positioned(
+            top: 40,
+            right: 16,
+            child: IconButton(
+              icon: Icon(Icons.close, color: Colors.white, size: 30),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class ChatDetailPage extends StatefulWidget {
+  final String name;
+  final String avatar;
+
+  const ChatDetailPage({
+    super.key,
+    required this.name,
+    required this.avatar,
+  });
+
+  @override
+  _ChatDetailPageState createState() => _ChatDetailPageState();
+}
+
+class _ChatDetailPageState extends State<ChatDetailPage> {
+  final List<Map<String, dynamic>> messages = [
+    {
+      'text': 'Hi, I\'m heading to the mall this afternoon',
+      'isMe': false,
+      'time': '01.12',
+    },
+    {
+      'text': 'Do you wanna join with me?',
+      'isMe': false,
+      'time': '01.12',
+    },
+    {
+      'text': 'its look awesome!',
+      'isMe': true,
+      'time': '01.23',
+    },
+    {
+      'text': 'But can I bring my girlfriend? They want to go to the mall',
+      'isMe': true,
+      'time': '01.23',
+    },
+    {
+      'text': 'of course, just him',
+      'isMe': false,
+      'time': '01.34',
+    },
+    {
+      'text': 'Thanks Rehan',
+      'isMe': true,
+      'time': '01.35',
+    },
+    {
+      'text': 'Ur Welcome!',
+      'isMe': false,
+      'time': '01.38',
+    },
+  ];
+
+  final TextEditingController _messageController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: NetworkImage(widget.avatar),
+              radius: 20,
+            ),
+            SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.name,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Online',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.more_vert, color: Colors.black),
+            onPressed: () {
+              // More options functionality
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Today',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              reverse: true,
+              padding: EdgeInsets.all(16),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[messages.length - 1 - index];
+                return Align(
+                  alignment: message['isMe']
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    margin: EdgeInsets.symmetric(vertical: 5),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: message['isMe']
+                          ? Colors.blue[100]
+                          : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(20).copyWith(
+                        bottomRight: message['isMe']
+                            ? Radius.zero
+                            : Radius.circular(20),
+                        bottomLeft: message['isMe']
+                            ? Radius.circular(20)
+                            : Radius.zero,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          message['text'],
+                          style: TextStyle(
+                            color: message['isMe']
+                                ? Colors.blue[900]
+                                : Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          message['time'],
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: message['isMe']
+                                ? Colors.blue[700]
+                                : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Message Input Area
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.mic, color: Colors.blue),
+                  onPressed: () {
+                    // Voice message functionality
+                  },
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Message...',
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send, color: Colors.blue),
+                  onPressed: () {
+                    // Send message functionality
+                    if (_messageController.text.isNotEmpty) {
+                      setState(() {
+                        messages.insert(0, {
+                          'text': _messageController.text,
+                          'isMe': true,
+                          'time': DateTime.now().toString().substring(11, 16),
+                        });
+                        _messageController.clear();
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -2715,7 +2796,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 height: profileImageHeight,
                 width: double.infinity,
                 child: Image.asset(
-                  'assets/images/sam.jpeg',
+                  'assets/images/james.jpg',
                   fit: BoxFit.cover,
                 ),
               ),
@@ -2791,7 +2872,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Dr. Puneet Goyal',
+                          'Marvin Watts, 25',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -2839,7 +2920,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Professor',
+                          'Photographer',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[600],
@@ -2853,7 +2934,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'India',
+                          'New York',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[600],
@@ -2873,7 +2954,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'I am an Associate Professor (CSE, AI) & PMRF Coordinator at IIT Ropar.',
+                      'I am single, 25 years old. I love Music, Traveling & going out to play. You can find me in New York.',
                       style: TextStyle(
                         fontSize: 15,
                         color: Colors.black87,
@@ -2897,11 +2978,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       spacing: 10,
                       runSpacing: 10,
                       children: [
-                        _buildInterestButton('Teaching', Icons.star),
-                        _buildInterestButton('Learning', Icons.book),
+                        _buildInterestButton('Gym & Fitness', Icons.fitness_center),
+                        _buildInterestButton('Food & Drink', Icons.restaurant),
                         _buildInterestButton('Travel', Icons.flight),
-                        _buildInterestButton('Technology', Icons.language),
-                        _buildInterestButton('Education', Icons.design_services),
+                        _buildInterestButton('Art', Icons.palette),
+                        _buildInterestButton('Design', Icons.design_services),
                       ],
                     ),
                     const SizedBox(height: 25),
