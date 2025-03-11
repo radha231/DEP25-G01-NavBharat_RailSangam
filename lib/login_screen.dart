@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import './main.dart'; // Ensure this points to main.dart or home screen file
 
@@ -15,6 +17,258 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String _errorMessage = '';
+
+  void _showRegistrationForm() {
+    // Controllers for form fields
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController emailController = TextEditingController();
+    final TextEditingController passwordController = TextEditingController();
+    final TextEditingController interestController = TextEditingController();
+
+    // Track user interests
+    List<String> userInterests = [];
+
+    // Form key for validation
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Register New Account'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          labelText: 'Full Name',
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your name';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 12),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter email';
+                          }
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 12),
+                      TextFormField(
+                        controller: passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: Icon(Icons.lock),
+                        ),
+                        obscureText: true,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Add your interests:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: interestController,
+                              decoration: InputDecoration(
+                                hintText: 'Enter an interest',
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(Icons.add),
+                            onPressed: () {
+                              if (interestController.text.trim().isNotEmpty) {
+                                setState(() {
+                                  userInterests.add(interestController.text.trim());
+                                  interestController.clear();
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      if (userInterests.isNotEmpty) ...[
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Your interests:',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: userInterests.map((interest) {
+                            return Chip(
+                              label: Text(interest),
+                              deleteIcon: Icon(Icons.clear, size: 16),
+                              onDeleted: () {
+                                setState(() {
+                                  userInterests.remove(interest);
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                      SizedBox(height: 8),
+                      if (userInterests.isEmpty)
+                        Text(
+                          'Please add at least one interest',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // Validate interests
+                    if (userInterests.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please add at least one interest')),
+                      );
+                      return;
+                    }
+
+                    // Validate form
+                    if (formKey.currentState!.validate()) {
+                      try {
+                        // Show loading indicator
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (BuildContext context) {
+                            return const Center(child: CircularProgressIndicator());
+                          },
+                        );
+
+                        // Create user with email and password
+                        final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                          email: emailController.text.trim(),
+                          password: passwordController.text,
+                        );
+
+                        // Store additional user data in Firestore
+                        await FirebaseFirestore.instance
+                            .collection('Users')
+                            .doc(userCredential.user!.uid)
+                            .set({
+                          'Name': nameController.text.trim(),
+                          'email_Id': emailController.text.trim(),
+                          'Password': passwordController.text, // Note: Storing passwords in plaintext is not recommended
+                          'Interests': userInterests,
+                          'createdAt': FieldValue.serverTimestamp(),
+                        });
+
+                        // Hide loading indicator and dialog
+                        Navigator.pop(context); // Pop loading dialog
+                        Navigator.pop(context); // Pop registration dialog
+
+                        // Navigate to LoginPage
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginPage()), // Change LoginPage() if needed
+                        );
+
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Registration successful!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } on FirebaseAuthException catch (e) {
+                        // Hide loading indicator
+                        Navigator.pop(context);
+
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              e.code == 'email-already-in-use'
+                                  ? 'The email address is already in use.'
+                                  : e.code == 'weak-password'
+                                  ? 'The password is too weak.'
+                                  : 'An error occurred: ${e.message}',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } catch (e) {
+                        // Hide loading indicator
+                        Navigator.pop(context);
+
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('An error occurred: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Register'),
+                ),
+
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   Future<void> _launchIRCTCWebsite() async {
     final Uri irctcUrl = Uri.parse('https://www.irctc.co.in/');
@@ -209,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Center(
                               child: TextButton(
                                 onPressed: () {
-                                  _showSnackBar('Register Clicked');
+                                  _showRegistrationForm();
                                 },
                                 child: const Text('New user? Register here'),
                               ),
