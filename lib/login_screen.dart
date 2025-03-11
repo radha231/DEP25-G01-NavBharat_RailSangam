@@ -218,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Navigate to LoginPage
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => const LoginPage()), // Change LoginPage() if needed
+                          MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())) // Change LoginPage() if needed
                         );
 
                         // Show success message
@@ -303,7 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text.trim() == 'password123') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => LoginPage()), // Change LoginPage() if needed
+          MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())), // Change LoginPage() if needed
         );
       } else {
         setState(() {
