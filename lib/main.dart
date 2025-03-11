@@ -132,13 +132,17 @@ class LocationService {
 
 // Modify the LoginPage to include train selection
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final String emailId;
+  const LoginPage({Key? key, required this.emailId}) : super(key: key);
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState(emailId: this.emailId);
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final String emailId;
+
+  _LoginPageState({required this.emailId});
   Train? selectedTrain;
   List<Train> trains = [];
   bool isLoading = false;
@@ -202,11 +206,11 @@ class _LoginPageState extends State<LoginPage> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      CustomTextField(
-                        label: 'Your Interests',
-                        prefixIcon: Icons.interests,
-                        hint: 'e.g., Photography, History, Food',
-                      ),
+                      // CustomTextField(
+                      //   label: 'Your Interests',
+                      //   prefixIcon: Icons.interests,
+                      //   hint: 'e.g., Photography, History, Food',
+                      // ),
                       if (errorMessage.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -259,8 +263,8 @@ class _LoginPageState extends State<LoginPage> {
                                 }
 
                                 final List<String> coaches = List<String>.from(data['Coaches'] ?? []);
-                                print('coaches:::');
-                                print(coaches);
+                                // print('coaches:::');
+                                // print(coaches);
                                 setState(() {
 
                                   selectedTrain = Train(
@@ -364,7 +368,7 @@ class _LoginPageState extends State<LoginPage> {
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => HomePage(selectedTrain: selectedTrain!),
+                                        builder: (context) => HomePage(selectedTrain: selectedTrain!, emailId: this.emailId,),
                                       ),
                                     );
                                   },
@@ -509,14 +513,16 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 
 class HomePage extends StatefulWidget {
   final Train selectedTrain;
-
-  const HomePage({required this.selectedTrain, super.key});
+  final String emailId;
+  const HomePage({required this.selectedTrain,required this.emailId,  super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState(emailId: this.emailId);
 }
 
 class _HomePageState extends State<HomePage> {
+  final String emailId;
+  _HomePageState({required this.emailId});
   int _selectedIndex = 0;
   late List<Widget> _pages;
   Timer? _locationTimer;
@@ -530,7 +536,7 @@ class _HomePageState extends State<HomePage> {
       const TravelersPage(),
       LocationInfoPage(selectedTrain: widget.selectedTrain),
       HomeScreen(),
-      const ProfilePage(),
+      ProfilePage(emailId : this.emailId),
     ];
     startLocationTracking();
   }
@@ -2452,13 +2458,49 @@ class TravelerCard extends StatelessWidget {
 // }
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+  final String emailId;
+  const ProfilePage({Key? key, required this.emailId}) : super(key: key);
 
   @override
-  _ProfilePageState createState() => _ProfilePageState();
+  _ProfilePageState createState() => _ProfilePageState(emailId: emailId);
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final String emailId;
+
+  _ProfilePageState({required this.emailId});
+
+  String? name;
+  List<String>? interests;
+
+  Future<void> _fetchUserData() async {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final DocumentSnapshot document = snapshot.docs.first;
+
+      // Check if fields exist and are not null
+      if (document['Name'] != null && document['Interests'] != null) {
+        setState(() {
+          name = document['Name'];
+          interests = List<String>.from(document['Interests']);
+        });
+      } else {
+        print('Name or Interests field is missing or null');
+      }
+    } else {
+      print('No user found with email: $emailId');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    print('initState called'); // Check if this prints
+    _fetchUserData();
+  }
+
   bool showSettings = false;
 
   void _showImageSourceOptions() {
@@ -2581,7 +2623,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: const Icon(
                       Icons.edit,
-                      color: Colors.pink,
+                      color: Colors.blue,
                       size: 20,
                     ),
                   ),
@@ -2603,9 +2645,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Dr. Puneet Goyal',
-                          style: TextStyle(
+                         Text(
+                          '$name',
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
@@ -2613,7 +2655,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.pink[50],
+                            color: Colors.blue[50],
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -2623,7 +2665,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 width: 8,
                                 margin: const EdgeInsets.only(right: 5),
                                 decoration: BoxDecoration(
-                                  color: Colors.pink[400],
+                                  color: Colors.blue[400],
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -2631,7 +2673,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 'Online',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.pink[400],
+                                  color: Colors.blue[400],
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -2709,13 +2751,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: [
-                        _buildInterestButton('Teaching', Icons.star),
-                        _buildInterestButton('Learning', Icons.book),
-                        _buildInterestButton('Travel', Icons.flight),
-                        _buildInterestButton('Technology', Icons.language),
-                        _buildInterestButton('Education', Icons.design_services),
-                      ],
+                      children: interests?.map((interest) =>
+                          _buildInterestButton(interest)
+                      )?.toList() ?? [], // Handle null interests with empty list
                     ),
                     const SizedBox(height: 25),
 
@@ -2735,31 +2773,20 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // Helper method for creating interest buttons with icons
-  Widget _buildInterestButton(String label, IconData icon) {
+  Widget _buildInterestButton(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.pink[400],
+        color: Colors.blue[400],
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: Colors.white,
-            size: 16,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
       ),
     );
   }
