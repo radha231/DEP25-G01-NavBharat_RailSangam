@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import './main.dart'; // Ensure this points to main.dart or home screen file
 
@@ -216,6 +217,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.pop(context); // Pop registration dialog
 
                         // Navigate to LoginPage
+
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('user_email', _emailController as String);
+
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())) // Change LoginPage() if needed
@@ -286,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _login() {
+  void _login() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -294,26 +299,35 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = '';
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_email', _emailController.text.trim());
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())),
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        if (e.code == 'user-not-found') {
+          _errorMessage = 'No user found for that email.';
+        } else if (e.code == 'wrong-password') {
+          _errorMessage = 'Wrong password provided for that user.';
+        } else {
+          _errorMessage = e.message ?? 'An error occurred';
+        }
+      });
+      _showSnackBar(_errorMessage);
+    } finally {
       setState(() {
         _isLoading = false;
       });
-
-      if (true || _emailController.text.trim() == 'user@example.com' &&
-          _passwordController.text.trim() == 'password123') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())), // Change LoginPage() if needed
-        );
-      } else {
-        setState(() {
-          _errorMessage = 'Invalid email or password';
-        });
-        _showSnackBar(_errorMessage);
-      }
-    });
+    }
   }
-
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
