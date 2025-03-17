@@ -7,15 +7,21 @@ import 'dart:math';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart';
 import './notificationPage.dart';
 import 'splashscreen.dart'; // Import the new splash screen
-import 'login_screen.dart'; // Import login screen
+import 'login_screen.dart'; // Import login screen
 import 'package:classico/chatting/page/chat_page.dart';
 import 'package:classico/chatting/page/chats_page.dart';
 import 'package:classico/chatting/model/user.dart';
-import 'package:classico/chatting/model/user.dart';
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+import 'package:shared_preferences/shared_preferences.dart';
+import 'theme_provider.dart'; // Make sure this path is correct
+import 'package:provider/provider.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:audioplayers/audioplayers.dart';
 
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 
 Map<String, double> parseCoordinates(String coordinates) {
@@ -62,7 +68,18 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   // await _initializeUsersIfEmpty();
-  runApp(const TrainSocialApp());
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (context) => ThemeProvider(),
+        ),
+        // Add any other providers your app uses
+      ],
+      child: TrainSocialApp(), // Add this child widget - your root app widget
+    ),
+  );
 }
 // Method to initialize users if the collection is empty
 // Future<void> _initializeUsersIfEmpty() async {
@@ -444,45 +461,32 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey, // Set the navigator key
-      title: 'Train Social',
-      debugShowCheckedModeBanner: false,
-      home: const SplashScreen(), // Set SplashScreen as the initial route
-      routes: {
-        '/login': (context) => const LoginScreen(),
+    // Use Consumer to access the theme provider
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          builder: (context, child) {
+            final textScaleFactor = Provider.of<ThemeProvider>(context).textScaleFactor;
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaleFactor: textScaleFactor),
+              child: child!,
+            );
+          },
+          navigatorKey: navigatorKey, // Keep the navigator key
+          title: 'Train Social',
+          debugShowCheckedModeBanner: false,
+          home: const SplashScreen(), // Keep SplashScreen as the initial route
+          routes: {
+            '/login': (context) => const LoginScreen(),
+          },
+          // Use theme from ThemeProvider instead of hardcoded theme
+          theme: themeProvider.currentTheme,
+        );
       },
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        cardTheme: CardTheme(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.grey[100],
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.blue, width: 2),
-          ),
-        ),
-      ),
-      // home: const LoginPage(),
     );
   }
 
-  // Function to show the notification (this stays here)
+  // Keep this function unchanged
   Future<void> showNextStationNotification(Train selectedTrain) async {
     print('showNextStationNotification called');
     if (selectedTrain.stations.isNotEmpty) {
@@ -507,7 +511,6 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
       selectedTrain.stations.removeAt(0);
     }
   }
-
 }
 
 
@@ -2548,15 +2551,23 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    // First check if we should show settings screen
     if (showSettings) {
       return AccountSettingsScreen(
         onBack: () => setState(() => showSettings = false),
+        onLogout: () {
+          // Add your logout logic here
+          // For example: AuthService.logout();
+          // Then navigate to login page or perform any other actions
+        },
       );
     }
 
+    // If not showing settings, prepare measurements for the profile page
     final screenHeight = MediaQuery.of(context).size.height;
     final profileImageHeight = screenHeight * 0.55; // Adjusted to take less space
 
+    // Return the main profile layout
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Column(
@@ -2645,7 +2656,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                         Text(
+                        Text(
                           '$name',
                           style: const TextStyle(
                             fontSize: 24,
@@ -2757,11 +2768,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 25),
 
-                    // Sta
+                    // Placeholder for additional stats section
                     const SizedBox(height: 15),
-
-                    // Stats display - fixed to use the correct method
-
                   ],
                 ),
               ),
@@ -2849,10 +2857,12 @@ class InterestButton extends StatelessWidget {
 }
 class AccountSettingsScreen extends StatefulWidget {
   final VoidCallback onBack;
+  final VoidCallback onLogout;
 
   const AccountSettingsScreen({
     Key? key,
     required this.onBack,
+    required this.onLogout,
   }) : super(key: key);
 
   @override
@@ -2860,241 +2870,844 @@ class AccountSettingsScreen extends StatefulWidget {
 }
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
-  bool notificationsEnabled = true;
+  // Controllers for password change
+  final TextEditingController _oldPasswordController = TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+
+  // Controller for feedback submission
+  final TextEditingController _feedbackController = TextEditingController();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    _oldPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  // In your logout function:
+
+
+
+
+  void _showRatingDialog() {
+    double rating = 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rate Our App'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('How would you rate your experience?'),
+            const SizedBox(height: 20),
+            RatingBar.builder(
+              initialRating: 0,
+              minRating: 1,
+              direction: Axis.horizontal,
+              allowHalfRating: false,
+              itemCount: 5,
+              itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
+              itemBuilder: (context, _) => const Icon(
+                Icons.star,
+                color: Colors.amber,
+              ),
+              onRatingUpdate: (newRating) {
+                rating = newRating;
+                // Just store the rating, don't play sound yet
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Play sound when submitting based on rating
+              String soundPath = 'assets/sounds/rating.mp3';
+              _audioPlayer.play(AssetSource(soundPath));
+
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Thanks for rating us ${rating.toInt()} stars!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+
+              Navigator.pop(context);
+            },
+            child: const Text('SUBMIT'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTextSizeLabel(double value) {
+    if (value <= 0.8) return 'Small';
+    if (value <= 0.9) return 'Medium Small';
+    if (value <= 1.0) return 'Normal';
+    if (value <= 1.1) return 'Medium Large';
+    return 'Large';
+  }
+
+  void _showChangePasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _oldPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Current Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _newPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'New Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _confirmPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Confirm New Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Add password change logic here
+              // Validate passwords match and handle the change
+              Navigator.pop(context);
+            },
+            child: const Text('CHANGE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Feedback submission dialog
+  void _showFeedbackDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Submit Feedback'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('We value your feedback! Please let us know how we can improve.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _feedbackController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                hintText: 'Your feedback here...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement feedback submission
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Thank you for your feedback!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('SUBMIT'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  // Delete account confirmation dialog
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              'Warning: This action cannot be undone. All your data will be permanently deleted.',
+              style: TextStyle(color: Colors.red),
+            ),
+            SizedBox(height: 16),
+            Text('Are you sure you want to delete your account?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () {
+              // TODO: Implement account deletion logic
+              Navigator.pop(context);
+              // After deletion, navigate to login screen
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+                    (Route<dynamic> route) => false,
+              );
+            },
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Improved logout function
+  void _handleLogout() async {
+    // Clear authentication data
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Or clear specific keys related to authentication
+
+    // Call the onLogout callback from parent
+    widget.onLogout();
+
+    // Navigate to login screen and remove all previous routes
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => LoginScreen()),
+          (Route<dynamic> route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Get theme provider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.blue[50], // Changed to light blue
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: widget.onBack,
-        ),
-        title: const Text(
-          'Settings',
-          style: TextStyle(color: Colors.black),
-        ),
-        centerTitle: true,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blue[50],
+        appBar: AppBar(
+          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
+            onPressed: widget.onBack,
           ),
+          title: Text(
+            'Settings',
+            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+          ),
+          centerTitle: true,
         ),
-        child: ListView(
-          children: [
+        body: Container(
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[800] : Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: ListView(
+                children: [
+                const SizedBox(height: 10),
+
+            // Profile section
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: isDarkMode ? Colors.blue[700] : Colors.blue[100],
+                child: Icon(
+                  Icons.person,
+                  color: isDarkMode ? Colors.blue[200] : Colors.blue[600],
+                ),
+              ),
+              title: Text(
+                'John Doe', // Replace with actual user name
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: Text(
+                'john.doe@example.com', // Replace with actual user email
+                style: TextStyle(
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              trailing: IconButton(
+                icon: Icon(
+                  Icons.edit,
+                  color: isDarkMode ? Colors.blue[300] : Colors.blue[600],
+                ),
+                onPressed: () {
+                  // TODO: Implement profile edit functionality
+                },
+              ),
+            ),
+
             const SizedBox(height: 10),
+            const Divider(),
 
             // Account section
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 'Account',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black,
                 ),
               ),
             ),
 
-            // Profile settings - using blue colors now
+            // Privacy settings with password change
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.person,
-                  color: Colors.blue[400],
-                ),
-              ),
-              title: const Text('Personal Information'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
-
-            // Privacy settings - using blue colors now
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue[100],
+                  color: isDarkMode ? Colors.blueGrey[700] : Colors.blue[100],
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.lock,
-                  color: Colors.blue[600],
+                  color: isDarkMode ? Colors.blue[300] : Colors.blue[600],
                 ),
               ),
-              title: const Text('Privacy'),
+              title: Text(
+                'Privacy & Password',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: const Text('Change your password'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
+              onTap: _showChangePasswordDialog,
             ),
 
-            // Account security - using blue colors now
+            // Data management
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: isDarkMode ? Colors.purple[900] : Colors.purple[50],
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.security,
-                  color: Colors.blue[400],
+                  Icons.storage,
+                  color: isDarkMode ? Colors.purple[300] : Colors.purple[600],
                 ),
               ),
-              title: const Text('Security'),
+              title: Text(
+                'Data Management',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: const Text('Download or delete your data'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
-
-            const Divider(),
-
-            // Notifications section
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'Notifications',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-
-            // Notification toggle - changed to blue
-            SwitchListTile(
-              title: const Text('Push Notifications'),
-              subtitle: Text(
-                notificationsEnabled
-                    ? 'You will receive notifications'
-                    : 'You will not receive notifications',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13,
-                ),
-              ),
-              value: notificationsEnabled,
-              activeColor: Colors.blue[600], // Changed to blue
-              onChanged: (value) {
-                setState(() {
-                  notificationsEnabled = value;
-                });
+              onTap: () {
+                // TODO: Implement data management screen
               },
             ),
 
-            // Email notifications
-            ListTile(
-              title: const Text('Email Notifications'),
-              subtitle: Text(
-                'Manage email preferences',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
-
             const Divider(),
 
-            // Other settings section
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            // App theme section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                'Other',
+                'Appearance',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black,
                 ),
               ),
             ),
 
-            // Help and support - using blue colors now
+            // Theme toggle - now connected to ThemeProvider
+            SwitchListTile(
+              title: Text(
+                'Dark Mode',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: Text(
+                isDarkMode ? 'Dark theme enabled' : 'Light theme enabled',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 13,
+                ),
+              ),
+              value: isDarkMode,
+              activeColor: Colors.blue[600],
+              onChanged: (value) {
+                // Toggle theme using the provider
+                themeProvider.toggleTheme();
+              },
+            ),
+
+            // Text size slider
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: isDarkMode ? Colors.amber[900] : Colors.amber[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.text_fields,
+                  color: isDarkMode ? Colors.amber[300] : Colors.amber[600],
+                ),
+              ),
+              title: Text(
+                'Text Size',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: Slider(
+                value: themeProvider.textScaleFactor,
+                min: 0.8,
+                max: 1.2,
+                divisions: 4,
+                label: _getTextSizeLabel(themeProvider.textScaleFactor),
+                activeColor: Colors.blue[600],
+                onChanged: (double value) {
+                  themeProvider.setTextScaleFactor(value);
+                },
+              ),
+            ),
+
+            const Divider(),
+
+                  // Language selection tile - with non-nullable colors
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.teal[900]! : Colors.teal[50]!, // Added ! to handle nullable
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.language,
+                        color: isDarkMode ? Colors.teal[300]! : Colors.teal[600]!, // Added ! to handle nullable
+                      ),
+                    ),
+                    title: Text(
+                      'Language', // Will be replaced with translation later
+                      style: TextStyle(
+                        color: isDarkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'English', // Placeholder for current language
+                      style: TextStyle(
+                        color: isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
+                        fontSize: 13,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      // Show language selection UI when tapped
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => Container(
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          decoration: BoxDecoration(
+                            color: isDarkMode ? const Color(0xFF202020) : Colors.white,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                              topRight: Radius.circular(20),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              )
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              // Handle bar
+                              Container(
+                                margin: const EdgeInsets.only(top: 12),
+                                height: 4,
+                                width: 40,
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              // Title
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  'Select Language',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDarkMode ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ),
+                              // Language Grid
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: GridView.builder(
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 1.5,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 16,
+                                    ),
+                                    itemCount: 6, // Six languages
+                                    itemBuilder: (context, index) {
+                                      // Define language options inline
+                                      String code = '', name = '', nativeName = '';
+
+                                      switch(index) {
+                                        case 0:
+                                          code = 'en';
+                                          name = 'English';
+                                          nativeName = 'English';
+                                          break;
+                                        case 1:
+                                          code = 'hi';
+                                          name = 'Hindi';
+                                          nativeName = 'हिन्दी';
+                                          break;
+                                        case 2:
+                                          code = 'bn';
+                                          name = 'Bengali';
+                                          nativeName = 'বাংলা';
+                                          break;
+                                        case 3:
+                                          code = 'pa';
+                                          name = 'Punjabi';
+                                          nativeName = 'ਪੰਜਾਬੀ';
+                                          break;
+                                        case 4:
+                                          code = 'te';
+                                          name = 'Telugu';
+                                          nativeName = 'తెలుగు';
+                                          break;
+                                        case 5:
+                                          code = 'mr';
+                                          name = 'Marathi';
+                                          nativeName = 'मराठी';
+                                          break;
+                                      }
+
+                                      final isSelected = code == 'en'; // Placeholder logic
+
+                                      return AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? isDarkMode ? Colors.teal[900]! : Colors.teal[50]! // Added ! to handle nullable
+                                              : isDarkMode ? const Color(0xFF303030) : Colors.grey[100]!, // Added ! to handle nullable
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? Colors.teal
+                                                : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: InkWell(
+                                          onTap: () {
+                                            // Just close the sheet for now
+                                            Navigator.pop(context);
+                                          },
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                nativeName,
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isSelected
+                                                      ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
+                                                      : isDarkMode ? Colors.white : Colors.black,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                name,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: isSelected
+                                                      ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
+                                                      : isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
+                                                ),
+                                              ),
+                                              if (isSelected)
+                                                Icon(
+                                                  Icons.check_circle,
+                                                  color: isDarkMode ? Colors.teal[200]! : Colors.teal[800]!, // Added ! to handle nullable
+                                                  size: 20,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              // Cancel button
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(double.infinity, 50),
+                                    backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!, // Added ! to handle nullable
+                                    foregroundColor: isDarkMode ? Colors.white : Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text('Cancel'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+
+            // Feedback and support section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Support',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+            ),
+
+            // Help and support with app guide and contact info
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.blueGrey[700] : Colors.blue[50],
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.help_outline,
-                  color: Colors.blue[400],
+                  color: isDarkMode ? Colors.blue[300] : Colors.blue[400],
                 ),
               ),
-              title: const Text('Help & Support'),
+              title: Text(
+                'Help & Support',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: const Text('App guide and contact information'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
+              onTap: () {
+                // Show help dialog
+                showDialog(
+                  context: context,
+    builder: (context) => AlertDialog(
+    title: const Text('Help & Support'),
+    content: Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: const [
+    Text('Need help with Classico?'),
+    SizedBox(height: 8),
+    Text('Email: support@classico.app'),
+    Text('Phone: +1 (555) 123-4567'),
+    SizedBox(height: 16),
+    Text('App Version: 1.0.0'),
+    ],
+    ),
+    actions: [
+    TextButton(
+    onPressed: () => Navigator.pop(context),
+    child: const Text('CLOSE'),
+    ),
+    ],
+    ),
+    );
+    },
+    ),
 
-            // About - using blue colors now
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue[100],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.info_outline,
-                  color: Colors.blue[600],
-                ),
-              ),
-              title: const Text('About'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
-            ),
+    // NEW: App feedback submission
+    ListTile(
+    leading: Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+    color: isDarkMode ? Colors.green[900] : Colors.green[50],
+    shape: BoxShape.circle,
+    ),
+    child: Icon(
+    Icons.feedback,
+    color: isDarkMode ? Colors.green[300] : Colors.green[600],
+    ),
+    ),
+    title: Text(
+    'Submit Feedback',
+    style: TextStyle(
+    color: isDarkMode ? Colors.white : Colors.black,
+    ),
+    ),
+    subtitle: const Text('Help us improve your experience'),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: _showFeedbackDialog,
+    ),
 
-            const SizedBox(height: 10),
-            const Divider(),
 
-            // Logout button - kept red for better visibility
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: GestureDetector(
-                onTap: () {
-                  // Handle logout
-                },
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.red[50],
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.logout,
-                        color: Colors.red[400],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Text(
-                      'Log Out',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
+
+
+// Widget list continues here
+        ListTile(
+        leading: Container(
+        padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+    color: isDarkMode ? Colors.amber[900] : Colors.amber[50],
+    shape: BoxShape.circle,
+    ),
+    child: Icon(
+    Icons.star,
+    color: isDarkMode ? Colors.amber[300] : Colors.amber[600],
+    ),
+    ),
+    title: Text(
+    'Rate Our App',
+    style: TextStyle(
+    color: isDarkMode ? Colors.white : Colors.black,
+    ),
+    ),
+    subtitle: const Text('Enjoying TrainSocial? Let us know!'),
+    trailing: const Icon(Icons.chevron_right),
+    onTap: () => _showRatingDialog(),
+    ),
+
+    const SizedBox(height: 10),
+    const Divider(),
+
+// Account management section (Logout and Delete)
+    Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Text(
+    'Account Management',
+    style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: isDarkMode ? Colors.white : Colors.black,
+    ),
+    ),
+    ),
+
+// Logout button - fixed implementation
+    ListTile(
+    leading: Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+    color: isDarkMode ? Colors.orange[900] : Colors.orange[50],
+    shape: BoxShape.circle,
+    ),
+    child: Icon(
+    Icons.logout,
+    color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
+    ),
+    ),
+    title: Text(
+    'Log Out',
+    style: TextStyle(
+    color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
+    fontWeight: FontWeight.w500,
+    ),
+    ),
+    onTap: () => _handleLogout(),
+    ),
+
+// NEW: Delete account option
+    ListTile(
+    leading: Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+    color: isDarkMode ? Colors.red[900] : Colors.red[50],
+    shape: BoxShape.circle,
+    ),
+    child: Icon(
+    Icons.delete_forever,
+    color: isDarkMode ? Colors.red[300] : Colors.red,
+    ),
+    ),
+    title: const Text(
+    'Delete Account',
+    style: TextStyle(
+    color: Colors.red,
+    fontWeight: FontWeight.w500,
+    ),
+    ),
+    subtitle: const Text('Permanently remove your account and data'),
+    onTap: () => _showDeleteAccountDialog(),
+    ),
+
+    const SizedBox(height: 30),
+    ],
+    ),
       ),
     );
   }
