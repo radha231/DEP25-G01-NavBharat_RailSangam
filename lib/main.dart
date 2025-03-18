@@ -1268,6 +1268,7 @@ class _TravelersPageState extends State<TravelersPage> {
       // Get the current user's pendingApprovals list
       final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
       final List<dynamic> following = currentUserData['following'] ?? [];
+
       // Fetch all users in the same journey (train, coach, and date)
       final QuerySnapshot journeySnapshot = await _firestore
           .collection('Journey')
@@ -1276,12 +1277,17 @@ class _TravelersPageState extends State<TravelersPage> {
           .where('travel_date', isEqualTo: travelDate.trim())
           .get();
 
+      final Set<String> uniqueEmails = {}; // To store unique email_ids
       final List<Map<String, dynamic>> users = [];
+
       for (var doc in journeySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
 
         // Exclude the current user and users already in the following list
-        if (data['email_id'] != emailId && !following.contains(data['email_id'])) {
+        if (data['email_id'] != emailId &&
+            !following.contains(data['email_id']) &&
+            !uniqueEmails.contains(data['email_id'])) {
+          uniqueEmails.add(data['email_id']); // Add email_id to the set
           users.add(data);
         }
       }
