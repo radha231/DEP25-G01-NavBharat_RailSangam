@@ -21,10 +21,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _currentUserEmail = prefs.getString('user_email');
+      print('Current user BBBBBBB:');
+      print(_currentUserEmail);
     });
   }
 
   Future<void> _sendMessage(String recipientEmail, String message) async {
+
     await firestore.collection('chats').add({
       'from_email': _currentUserEmail,
       'to_email': recipientEmail,
@@ -100,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat App'),
+        title: Text('Chatting section'),
         backgroundColor: Colors.blue,
         actions: [
           IconButton(
