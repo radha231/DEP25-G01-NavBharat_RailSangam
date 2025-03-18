@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'main.dart';// Import your TravelersPage
+import './main.dart'; // Ensure this points to main.dart or home screen file
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -181,6 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                       return;
                     }
+
                     // Validate form
                     if (formKey.currentState!.validate()) {
                       try {
@@ -202,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Store additional user data in Firestore
                         await FirebaseFirestore.instance
                             .collection('Users')
-                            .doc(userCredential.user!.uid) // Use UID as the document ID
+                            .doc(userCredential.user!.uid)
                             .set({
                           'Name': nameController.text.trim(),
                           'email_Id': emailController.text.trim(),
@@ -216,18 +217,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           'acceptedRequests': [], // Initialize acceptedRequests as an empty list
                           'rejectedRequests': [], // Initialize rejectedRequests as an empty list
                           'notifications': [], // Initialize notifications as an empty list
-                          'status': 'active', // Default status
+                          'status': 'active',
                         });
 
                         // Hide loading indicator and dialog
                         Navigator.pop(context); // Pop loading dialog
                         Navigator.pop(context); // Pop registration dialog
 
-                        // Save user ID in SharedPreferences
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('currentUserId', userCredential.user!.uid);
+                        // Navigate to LoginPage
 
-                        // Navigate to TravelersPage
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('user_email', _emailController as String);
+
                         Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())) // Change LoginPage() if needed
@@ -273,6 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: const Text('Register'),
                 ),
+
               ],
             );
           },
@@ -306,18 +308,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Save user ID in SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('currentUserId', userCredential.user!.uid);
-
+      await prefs.setString('user_email',  _emailController.text.trim());
       Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())) // Change LoginPage() if needed
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())),
       );
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -336,7 +336,6 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     }
   }
-
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -409,17 +408,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: InputDecoration(
                                 labelText: 'Email',
                                 prefixIcon: const Icon(Icons.email),
+                                filled: true,
+                                fillColor: Colors.grey[100],
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
                                 ),
                               ),
-                              keyboardType: TextInputType.emailAddress,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter email';
-                                }
-                                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                  return 'Please enter a valid email';
+                                  return 'Please enter your email';
                                 }
                                 return null;
                               },
@@ -427,64 +425,73 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: _passwordController,
+                              obscureText: true,
                               decoration: InputDecoration(
                                 labelText: 'Password',
                                 prefixIcon: const Icon(Icons.lock),
+                                filled: true,
+                                fillColor: Colors.grey[100],
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
                                 ),
                               ),
-                              obscureText: true,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter password';
+                                  return 'Please enter your password';
                                 }
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 24),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  _showSnackBar('Forgot Password Clicked');
+                                },
+                                child: const Text('Forgot Password?'),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
+                              height: 56,
                               child: ElevatedButton(
+                                onPressed: _isLoading ? null : _login,
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  textStyle: const TextStyle(fontSize: 18),
+                                  backgroundColor: Colors.blue[900],
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
-                                onPressed: _isLoading ? null : _login,
                                 child: _isLoading
-                                    ? const SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ? const CircularProgressIndicator(color: Colors.white)
+                                    : const Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
                                   ),
-                                )
-                                    : const Text('Login'),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Center(
+                              child: TextButton(
+                                onPressed: _launchIRCTCWebsite,
+                                child: const Text('Train Booking (IRCTC)'),
+                              ),
+                            ),
+                            Center(
+                              child: TextButton(
+                                onPressed: () {
+                                  _showRegistrationForm();
+                                },
+                                child: const Text('New user? Register here'),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          TextButton(
-                            onPressed: _showRegistrationForm,
-                            child: const Text('Register'),
-                          ),
-                          const SizedBox(width: 20),
-                          InkWell(
-                            onTap: _launchIRCTCWebsite,
-                            child: const Text(
-                              'Book tickets',
-                              style: TextStyle(color: Colors.blue),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
