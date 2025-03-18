@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'dart:math';
@@ -381,13 +382,29 @@ class _LoginPageState extends State<LoginPage> {
                                 child: ElevatedButton(
                                   onPressed: (selectedCoach == null || (travelDate?.isEmpty ?? true))
                                       ? null
-                                      : () {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => HomePage(selectedTrain: selectedTrain!, emailId: this.emailId,),
-                                      ),
-                                    );
+                                      : () async {
+                                    // Get Firestore instance
+                                    FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+                                    // Add data to Journey collection
+                                    await firestore.collection('Journey').add({
+                                      'train_no': trainNumberInput, // Ensure this holds the train number
+                                      'email_id': emailId,
+                                      'travel_date': travelDate,
+                                      'coach_number': selectedCoach,
+                                      'timestamp': FieldValue.serverTimestamp(), // To track entry time
+                                    }).then((_) {
+                                      // Navigate to Home Page after successful Firestore entry
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => HomePage(selectedTrain: selectedTrain!, emailId: emailId, travelDate: travelDate!, selectedCoach: selectedCoach!, trainNo: trainNumberInput,),
+                                        ),
+                                      );
+                                    }).catchError((error) {
+                                      // Handle errors if the Firestore entry fails
+                                      print("Failed to add journey: $error");
+                                    });
                                   },
                                   style: ElevatedButton.styleFrom(
                                     shape: RoundedRectangleBorder(
@@ -427,11 +444,27 @@ class TrainSocialApp extends StatefulWidget {
 }
 
 class _TrainSocialAppState extends State<TrainSocialApp> {
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
   @override
   void initState() {
     super.initState();
     initNotifications();
   }
+
+  // Future<void> updateUserDocuments() async {
+  //   final QuerySnapshot snapshot = await firestore.collection('Users').get();
+  //
+  //   for (var doc in snapshot.docs) {
+  //     await doc.reference.update({
+  //       'train_no': '12058',
+  //       'coach_number': 'C1',
+  //       'travel_date': '18-3-2025',
+  //     });
+  //   }
+  //
+  //   print('Documents updated successfully!');
+  // }
+
 
   Future<void> initNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -517,15 +550,21 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 class HomePage extends StatefulWidget {
   final Train selectedTrain;
   final String emailId;
-  const HomePage({required this.selectedTrain,required this.emailId,  super.key});
+  final String travelDate;
+  final String selectedCoach;
+  final String trainNo;
+  const HomePage({required this.selectedTrain,required this.emailId,required this.travelDate,required this.selectedCoach,required this.trainNo, super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState(emailId: this.emailId);
+  State<HomePage> createState() => _HomePageState(emailId: this.emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo);
 }
 
 class _HomePageState extends State<HomePage> {
   final String emailId;
-  _HomePageState({required this.emailId});
+  final String travelDate;
+  final String selectedCoach;
+  final String trainNo;
+  _HomePageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
   int _selectedIndex = 0;
   late List<Widget> _pages;
   Timer? _locationTimer;
@@ -536,7 +575,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _pages = [
-      const TravelersPage(),
+      TravelersPage(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo,),
       LocationInfoPage(selectedTrain: widget.selectedTrain),
       HomeScreen(),
       ProfilePage(emailId : this.emailId),
@@ -1117,13 +1156,22 @@ class CustomTextField extends StatelessWidget {
 
 
 class TravelersPage extends StatefulWidget {
-  const TravelersPage({super.key});
+  final String emailId;
+  final String travelDate;
+  final String selectedCoach;
+  final String trainNo;
+  const TravelersPage({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo,super.key});
 
   @override
-  _TravelersPageState createState() => _TravelersPageState();
+  _TravelersPageState createState() => _TravelersPageState(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo);
 }
 
 class _TravelersPageState extends State<TravelersPage> {
+  final String emailId;
+  final String travelDate;
+  final String selectedCoach;
+  final String trainNo;
+  _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
   // User's own data
   final Map<String, dynamic> currentUser = {
     'name': 'Puneet',
@@ -1179,12 +1227,387 @@ class _TravelersPageState extends State<TravelersPage> {
   // Hover state tracking
   bool _isAddStoryHovered = false;
   Map<String, bool> _friendHoverStates = {};
-
+  final Map<String, bool> _followRequestStates = {};
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> suggestedUsers = [];
+  bool _isLoading = false;
   @override
   void initState() {
     super.initState();
     // Initialize hover states for friends
+    _fetchSuggestedUsers();
+
     _friendHoverStates = {for (var friend in friends) friend['name']: false};
+    _removeOverlappingRejectedRequests(emailId);
+  }
+
+
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+
+
+  Future<void> _fetchSuggestedUsers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $emailId');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      // Get the current user's pendingApprovals list
+      final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
+      final List<dynamic> following = currentUserData['following'] ?? [];
+      // Fetch all users in the same journey (train, coach, and date)
+      final QuerySnapshot journeySnapshot = await _firestore
+          .collection('Journey')
+          .where('train_no', isEqualTo: trainNo.trim())
+          .where('coach_number', isEqualTo: selectedCoach.trim())
+          .where('travel_date', isEqualTo: travelDate.trim())
+          .get();
+
+      final List<Map<String, dynamic>> users = [];
+      for (var doc in journeySnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Exclude the current user and users already in the following list
+        if (data['email_id'] != emailId && !following.contains(data['email_id'])) {
+          users.add(data);
+        }
+      }
+
+      // Initialize follow request states
+      for (var user in users) {
+        _followRequestStates[user['email_id']] = pendingApprovals.contains(user['email_id']);
+      }
+
+      setState(() {
+        suggestedUsers = users;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      print('Error fetching suggested users: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching suggested users: $e')),
+      );
+    }
+  }
+  // Send follow request
+  Future<void> _sendFollowRequest(String targetEmail) async {
+    try {
+      // Disable the button and update the state
+      setState(() {
+        _followRequestStates[targetEmail] = true; // Mark request as sent
+      });
+
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the target user's document
+      final QuerySnapshot targetUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: targetEmail.trim())
+          .get();
+
+      if (targetUserSnapshot.docs.isEmpty) {
+        throw Exception('Target user document not found: $targetEmail');
+      }
+
+      final targetUserDocId = targetUserSnapshot.docs.first.id;
+
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail.trim())
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      final currentUserDocId = currentUserSnapshot.docs.first.id;
+
+      // Add target user to current user's pendingApprovals
+      await _firestore.collection('Users').doc(currentUserDocId).update({
+        'pendingApprovals': FieldValue.arrayUnion([targetEmail]),
+      });
+
+      // Add current user to target user's followRequests
+      await _firestore.collection('Users').doc(targetUserDocId).update({
+        'followRequests': FieldValue.arrayUnion([currentUserEmail]),
+      });
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Follow request sent to $targetEmail')),
+      );
+    } catch (e) {
+      print('Error sending follow request: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send follow request: $e')),
+      );
+
+      // Re-enable the button if there's an error
+      setState(() {
+        _followRequestStates[targetEmail] = false;
+      });
+    }
+  }
+
+  Future<void> _removeOverlappingRejectedRequests(String currentUserEmail) async {
+    try {
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      // Get the acceptedRequests and rejectedRequests lists
+      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
+      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
+
+      // Find overlapping entries
+      final List<dynamic> overlappingEntries = rejectedRequests
+          .where((email) => acceptedRequests.contains(email))
+          .toList();
+
+      // If there are overlapping entries, remove them from rejectedRequests
+      if (overlappingEntries.isNotEmpty) {
+        await _firestore.collection('Users').doc(currentUserDoc.id).update({
+          'rejectedRequests': FieldValue.arrayRemove(overlappingEntries),
+        });
+
+        print('[DEBUG] Removed overlapping entries from rejectedRequests: $overlappingEntries');
+      }
+    } catch (e) {
+      print('[DEBUG] Error removing overlapping rejected requests: $e');
+    }
+  }
+
+  // Accept follow request
+  Future<void> _acceptFollowRequest(String requesterEmail) async {
+    try {
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final timestamp = DateTime.now();
+      final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
+
+      // Fetch the requester's document
+      final QuerySnapshot requesterSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: requesterEmail)
+          .get();
+
+      if (requesterSnapshot.docs.isEmpty) {
+        throw Exception('Requester document not found: $requesterEmail');
+      }
+
+      final requesterDoc = requesterSnapshot.docs.first;
+
+      // Update the current user's document
+      await _firestore.collection('Users').doc(currentUserDoc.id).update({
+        'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
+        'followers': FieldValue.arrayUnion([requesterEmail]), // Add to acceptedRequests
+      });
+
+      // Update the requester's document
+      await _firestore.collection('Users').doc(requesterDoc.id).update({
+        'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
+        'following': FieldValue.arrayUnion([currentUserEmail]), // Add to fol
+        'acceptedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to acceptedRequests// lowing
+        'notifications': FieldValue.arrayUnion([
+          '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
+        ]), // Add notification to the requester's list
+      });
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Follow request accepted from $requesterEmail')),
+      );
+
+      // Refresh the follow requests list
+      await _removeOverlappingRejectedRequests(requesterEmail);
+      _showFollowRequests();
+    } catch (e) {
+      print('[DEBUG] Error accepting follow request: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error accepting follow request: $e')),
+      );
+    }
+  }
+
+  void _showNotifications() async {
+    try {
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $emailId');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      // Get the notifications, acceptedRequests, and rejectedRequests lists
+      final List<dynamic> notifications = currentUserData['notifications'] ?? [];
+      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
+      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
+
+      // Use a Set to store valid notifications (automatically handles duplicates)
+      final Set<String> validNotificationsSet = {};
+
+      // Filter notifications to only show those related to accepted or rejected requests
+      for (final notification in notifications) {
+        // Extract the email from the notification message
+        final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})').firstMatch(notification);
+        if (emailMatch != null) {
+          final email = emailMatch.group(0);
+
+          // Check if the email is in acceptedRequests or rejectedRequests
+          if (acceptedRequests.contains(email) || rejectedRequests.contains(email)) {
+            validNotificationsSet.add(notification); // Add to the Set (duplicates are ignored)
+          }
+        }
+      }
+
+      // Convert the Set back to a List for display
+      final List<String> validNotifications = validNotificationsSet.toList();
+
+      // Show the notifications in a modal bottom sheet
+      showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Notifications',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16),
+                if (validNotifications.isEmpty)
+                  Text('No new notifications.'),
+                ...validNotifications.map((notification) {
+                  return ListTile(
+                    title: Text(notification),
+                  );
+                }).toList(),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      print('[DEBUG] Error showing notifications: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error showing notifications: $e')),
+      );
+    }
+  }
+
+
+
+  // Reject follow request
+  Future<void> _rejectFollowRequest(String requesterEmail) async {
+    try {
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final timestamp = DateTime.now();
+      final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
+
+      // Fetch the requester's document
+      final QuerySnapshot requesterSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: requesterEmail)
+          .get();
+
+      if (requesterSnapshot.docs.isEmpty) {
+        throw Exception('Requester document not found: $requesterEmail');
+      }
+
+      final requesterDoc = requesterSnapshot.docs.first;
+
+      // Update the current user's document
+      await _firestore.collection('Users').doc(currentUserDoc.id).update({
+        'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
+      });
+
+      // Update the requester's document
+      await _firestore.collection('Users').doc(requesterDoc.id).update({
+        'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
+        'rejectedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to rejectedRequests
+        'notifications': FieldValue.arrayUnion([
+          '$currentUserEmail has rejected your follow request. You can send a new request from suggestions. ($formattedTimestamp)',
+        ]), // Add notification
+      });
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Follow request rejected from $requesterEmail')),
+      );
+
+      // Refresh the follow requests list
+      await _removeOverlappingRejectedRequests(currentUserEmail);
+      _showFollowRequests();
+    } catch (e) {
+      print('[DEBUG] Error rejecting follow request: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error rejecting follow request: $e')),
+      );
+    }
   }
 
   // Method to add a new story
@@ -1254,65 +1677,6 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
-  // Method to show suggestions bottom sheet
-  void _showSuggestionsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Traveller Suggestions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 16),
-              _buildSuggestionTile(
-                avatar: 'assets/images/sophia.jpeg',
-                name: 'Radha',
-                location: 'Haryana,India',
-              ),
-              _buildSuggestionTile(
-                avatar: 'assets/images/greg.jpeg',
-                name: 'Nitika',
-                location: 'Noida,India',
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Helper method for suggestion tiles with hover effect
-  Widget _buildSuggestionTile({
-    required String avatar,
-    required String name,
-    required String location
-  }) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: AssetImage(avatar),
-        ),
-        title: Text(name),
-        subtitle: Text(location),
-        trailing: ElevatedButton(
-          onPressed: () {},
-          child: Text('Follow'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFF4A89DC),
-          ),
-        ),
-      ),
-    );
-  }
 
   // Method to show story viewer
   void _showStoryViewer(Map<String, dynamic> friend) {
@@ -1355,6 +1719,165 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _fetchFollowRequests() async {
+    try {
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the current user's document using a query
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      // Get the current user's document
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      // Get the followRequests list
+      final List<dynamic> followRequests = currentUserData['followRequests'] ?? [];
+
+      // List to store users with pending follow requests
+      final List<Map<String, dynamic>> usersWithRequests = [];
+
+      // Fetch details of users in the followRequests list
+      for (final requesterEmail in followRequests) {
+        final requesterSnapshot = await _firestore
+            .collection('Users')
+            .where('email_Id', isEqualTo: requesterEmail)
+            .get();
+
+        if (requesterSnapshot.docs.isNotEmpty) {
+          final requesterData = requesterSnapshot.docs.first.data() as Map<String, dynamic>;
+          usersWithRequests.add({
+            'email': requesterEmail,
+            'name': requesterData['Name'],
+            'avatar': requesterData['avatar'],
+          });
+        }
+      }
+
+      print('[DEBUG] Users with follow requests: $usersWithRequests');
+      return usersWithRequests;
+    } catch (e) {
+      print('[DEBUG] Error fetching follow requests: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching follow requests: $e')),
+      );
+      return [];
+    }
+  }
+  void _showFollowRequests() async {
+    try {
+      // Fetch users with pending follow requests
+      final List<Map<String, dynamic>> followRequests = await _fetchFollowRequests();
+
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $emailId');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      // Get the acceptedRequests and rejectedRequests lists
+      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
+      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
+
+      // Remove overlapping entries (acceptedRequests takes precedence)
+      final cleanedRejectedRequests = rejectedRequests.where((email) => !acceptedRequests.contains(email)).toList();
+
+      // Show the follow requests in a modal bottom sheet
+      showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Follow Requests',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16),
+                if (followRequests.isEmpty && acceptedRequests.isEmpty && cleanedRejectedRequests.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'No pending follow requests.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                // // Show accepted requests notifications
+                // ...acceptedRequests.map((email) {
+                //   return ListTile(
+                //     leading: Icon(Icons.check_circle, color: Colors.green),
+                //     title: Text('$email has accepted your request!'),
+                //     subtitle: Text('You are now following $email.'),
+                //   );
+                // }).toList(),
+                // Show rejected requests notifications
+                // ...cleanedRejectedRequests.map((email) {
+                //   return ListTile(
+                //     leading: Icon(Icons.cancel, color: Colors.red),
+                //     title: Text('$email has rejected your request.'),
+                //     subtitle: Text('You can send a new request from suggestions.'),
+                //   );
+                // }).toList(),
+                // Show pending follow requests
+                ...followRequests.map((user) {
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: user['avatar'] != null
+                          ? AssetImage(user['avatar'])
+                          : AssetImage('assets/images/default_avatar.png'),
+                    ),
+                    title: Text(user['name'] ?? 'Unknown'),
+                    subtitle: Text(user['email']),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.check, color: Colors.green),
+                          onPressed: () => _acceptFollowRequest(user['email']),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.red),
+                          onPressed: () => _rejectFollowRequest(user['email']),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      print('[DEBUG] Error showing follow requests: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error showing follow requests: $e')),
+      );
+    }
+  }
   // Hover effect for app bar icons
   Widget _buildHoverableIconButton({
     required IconData icon,
@@ -1516,7 +2039,6 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
-
   // Widget to build a traveler's post card
   Widget _buildTravelerPostCard(Map<String, dynamic> friend, Map<String, dynamic> story) {
     return Card(
@@ -1625,6 +2147,118 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
+  Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
+    try {
+      final QuerySnapshot userSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId.trim())
+          .get();
+
+      if (userSnapshot.docs.isNotEmpty) {
+        final userDoc = userSnapshot.docs.first;
+        final userData = userDoc.data() as Map<String, dynamic>;
+
+        // Return the user details
+        return {
+          'Name': userData['Name'],
+          'avatar': userData['avatar'],
+        };
+      } else {
+        return {}; // Return empty map if no user is found
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
+      return {}; // Return empty map if an error occurs
+    }
+  }
+
+  // Show suggestions bottom sheet
+  void _showSuggestionsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Traveller Suggestions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16),
+              if (suggestedUsers.isEmpty)
+                Center(child: Text('No suggestions available.')),
+              ...suggestedUsers.map((user) {
+                // Use FutureBuilder to fetch Name and avatar from Users collection
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: _fetchUserDetails(user['email_id']), // Fetch user details
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircularProgressIndicator(); // Show loading indicator
+                    } else if (snapshot.hasError) {
+                      return ListTile(
+                        title: Text('Error loading user details'),
+                      );
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return ListTile(
+                        title: Text('User details not found'),
+                      );
+                    } else {
+                      final userDetails = snapshot.data!;
+                      return _buildSuggestionTile(
+                        avatar: userDetails['avatar'] as String?, // Cast to String?
+                        name: userDetails['Name'] as String?, // Cast to String?
+                        email: user['email_id'] as String?, // Cast to String?
+                      );
+                    }
+                  },
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method for suggestion tiles
+  Widget _buildSuggestionTile({
+    required String? avatar,
+    required String? name,
+    required String? email,
+  }) {
+    if (email == null) {
+      return ListTile(
+        title: Text('Invalid user'),
+      );
+    }
+
+    final isRequestSent = _followRequestStates[email] ?? false;
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: avatar != null
+            ? AssetImage(avatar)
+            : AssetImage('assets/images/default_avatar.png'),
+      ),
+      title: Text(name ?? 'Unknown'),
+      subtitle: Text(email),
+      trailing: ElevatedButton(
+        onPressed: isRequestSent
+            ? null // Disable the button if the request is sent
+            : () {
+          _sendFollowRequest(email);
+        },
+        child: Text(isRequestSent ? 'Request Sent' : 'Follow'),
+      ),
+    );
+  }
+  @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -1632,9 +2266,11 @@ class _TravelersPageState extends State<TravelersPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: _buildHoverableIconButton(
-            icon: Icons.menu,
-            color: Colors.black,
-            onPressed: () {/* Menu functionality */}
+          icon: Icons.menu,
+          color: Colors.black,
+          onPressed: () {
+            // Menu functionality
+          },
         ),
         title: Text(
           'Travellers',
@@ -1644,27 +2280,52 @@ class _TravelersPageState extends State<TravelersPage> {
           ),
         ),
         actions: [
+          // Existing bell icon for notifications
           _buildHoverableIconButton(
-              icon: Icons.notifications_outlined,
-              color: Colors.black,
-              onPressed: () {/* Notifications functionality */}
+            icon: Icons.add_alert_rounded,
+            color: Colors.black,
+            onPressed: () {
+              // Show notifications
+              _showNotifications();
+            },
+          ),
+          // New icon for follow requests
+          _buildHoverableIconButton(
+            icon: Icons.account_box_rounded,
+            color: Colors.black,
+            onPressed: () {
+              // Show follow requests
+              _showFollowRequests();
+            },
+          ),
+          // New icon for pending approvals
+          _buildHoverableIconButton(
+            icon: Icons.pending_actions, // Use an appropriate icon
+            color: Colors.black,
+            onPressed: () {
+              // Show pending approvals
+              _showPendingApprovals();
+            },
           ),
           _buildHoverableIconButton(
-              icon: Icons.chat_bubble_outline,
-              color: Colors.black,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HomeScreen(),
-                  ),
-                );
-              }
+            icon: Icons.chat_rounded,
+            color: Colors.black,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomeScreen(),
+                ),
+              );
+            },
           ),
           _buildHoverableIconButton(
-              icon: Icons.people_outline,
-              color: Colors.black,
-              onPressed: _showSuggestionsBottomSheet
+            icon: Icons.person_add_rounded,
+            color: Colors.black,
+            onPressed: () {
+              print('Suggestion Button Pressed');
+              _showSuggestionsBottomSheet();
+            },
           ),
         ],
       ),
@@ -1727,154 +2388,103 @@ class _TravelersPageState extends State<TravelersPage> {
           ),
         ],
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: _addNewStory,
-      //   backgroundColor: Color(0xFF4A89DC),
-      //   child: Icon(Icons.add, color: Colors.white),
-      // ),
     );
   }
 
-}
 
+  void _showPendingApprovals() async {
+    try {
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
 
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $emailId');
+      }
 
-class TravelerCard extends StatelessWidget {
-  final String name;
-  final List<String> interests;
-  final String destination;
-  final VoidCallback onChat;
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
 
-  const TravelerCard({
-    required this.name,
-    required this.interests,
-    required this.destination,
-    required this.onChat,
-    super.key,
-  });
+      // Get the pendingApprovals list
+      final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      // Show the pending approvals in a modal bottom sheet
+      showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F3460),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFE94560),
-                      width: 2,
-                    ),
+                Text(
+                  'Pending Approvals',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Center(
+                ),
+                SizedBox(height: 16),
+                if (pendingApprovals.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      name[0],
+                      'No pending approvals.',
                       style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFFE94560),
+                        fontSize: 14,
+                        color: Colors.grey,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFE94560),
-                        ),
-                      ),
-                      Text(
-                        'Traveling to $destination',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.more_vert,
-                    color: const Color(0xFFE94560),
-                  ),
-                  onPressed: () {},
-                ),
+                // Show pending approvals
+                ...pendingApprovals.map((email) {
+                  return FutureBuilder<Map<String, dynamic>>(
+                    future: _fetchUserDetails(email),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return CircularProgressIndicator();
+                      } else if (snapshot.hasError) {
+                        return ListTile(
+                          title: Text('Error loading user details'),
+                        );
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return ListTile(
+                          title: Text('User details not found'),
+                        );
+                      } else {
+                        final userDetails = snapshot.data!;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: userDetails['avatar'] != null
+                                ? AssetImage(userDetails['avatar'])
+                                : AssetImage('assets/images/default_avatar.png'),
+                          ),
+                          title: Text(userDetails['Name'] ?? 'Unknown'),
+                          subtitle: Text(email),
+                        );
+                      }
+                    },
+                  );
+                }).toList(),
               ],
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: interests.map((interest) {
-                return Chip(
-                  label: Text(
-                    interest,
-                    style: TextStyle(color: const Color(0xFFE94560)),
-                  ),
-                  backgroundColor: const Color(0xFF0F3460),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: onChat,
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Start Chat'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE94560),
-                      padding: const EdgeInsets.all(12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                IconButton(
-                  icon: Icon(
-                    Icons.favorite_border,
-                    color: const Color(0xFFE94560),
-                  ),
-                  onPressed: () {},
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+          );
+        },
+      );
+    } catch (e) {
+      print('[DEBUG] Error showing pending approvals: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error showing pending approvals: $e')),
+      );
+    }
   }
 }
+
+
+
 // class HistoryCard extends StatelessWidget {
 //   const HistoryCard({super.key});
 //
@@ -2479,6 +3089,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _fetchUserData() async {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
     final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+
 
     if (snapshot.docs.isNotEmpty) {
       final DocumentSnapshot document = snapshot.docs.first;
@@ -3126,31 +3737,31 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     final isDarkMode = themeProvider.isDarkMode;
 
     return Scaffold(
-        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blue[50],
-        appBar: AppBar(
-          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: widget.onBack,
-          ),
-          title: Text(
-            'Settings',
-            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-          ),
-          centerTitle: true,
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blue[50],
+      appBar: AppBar(
+        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
+          onPressed: widget.onBack,
         ),
-        body: Container(
-            decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey[800] : Colors.white,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: ListView(
-                children: [
-                const SizedBox(height: 10),
+        title: Text(
+          'Settings',
+          style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+        ),
+        centerTitle: true,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          color: isDarkMode ? Colors.grey[800] : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: ListView(
+          children: [
+            const SizedBox(height: 10),
 
             // Profile section
             ListTile(
@@ -3323,209 +3934,209 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
             const Divider(),
 
-                  // Language selection tile - with non-nullable colors
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isDarkMode ? Colors.teal[900]! : Colors.teal[50]!, // Added ! to handle nullable
-                        shape: BoxShape.circle,
+            // Language selection tile - with non-nullable colors
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.teal[900]! : Colors.teal[50]!, // Added ! to handle nullable
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.language,
+                  color: isDarkMode ? Colors.teal[300]! : Colors.teal[600]!, // Added ! to handle nullable
+                ),
+              ),
+              title: Text(
+                'Language', // Will be replaced with translation later
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: Text(
+                'English', // Placeholder for current language
+                style: TextStyle(
+                  color: isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
+                  fontSize: 13,
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                // Show language selection UI when tapped
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => Container(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xFF202020) : Colors.white,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
                       ),
-                      child: Icon(
-                        Icons.language,
-                        color: isDarkMode ? Colors.teal[300]! : Colors.teal[600]!, // Added ! to handle nullable
-                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          spreadRadius: 0,
+                        )
+                      ],
                     ),
-                    title: Text(
-                      'Language', // Will be replaced with translation later
-                      style: TextStyle(
-                        color: isDarkMode ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'English', // Placeholder for current language
-                      style: TextStyle(
-                        color: isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
-                        fontSize: 13,
-                      ),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // Show language selection UI when tapped
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => Container(
-                          height: MediaQuery.of(context).size.height * 0.7,
+                    child: Column(
+                      children: [
+                        // Handle bar
+                        Container(
+                          margin: const EdgeInsets.only(top: 12),
+                          height: 4,
+                          width: 40,
                           decoration: BoxDecoration(
-                            color: isDarkMode ? const Color(0xFF202020) : Colors.white,
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                spreadRadius: 0,
-                              )
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              // Handle bar
-                              Container(
-                                margin: const EdgeInsets.only(top: 12),
-                                height: 4,
-                                width: 40,
-                                decoration: BoxDecoration(
-                                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              // Title
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Text(
-                                  'Select Language',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDarkMode ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ),
-                              // Language Grid
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                  child: GridView.builder(
-                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      childAspectRatio: 1.5,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
-                                    ),
-                                    itemCount: 6, // Six languages
-                                    itemBuilder: (context, index) {
-                                      // Define language options inline
-                                      String code = '', name = '', nativeName = '';
-
-                                      switch(index) {
-                                        case 0:
-                                          code = 'en';
-                                          name = 'English';
-                                          nativeName = 'English';
-                                          break;
-                                        case 1:
-                                          code = 'hi';
-                                          name = 'Hindi';
-                                          nativeName = 'हिन्दी';
-                                          break;
-                                        case 2:
-                                          code = 'bn';
-                                          name = 'Bengali';
-                                          nativeName = 'বাংলা';
-                                          break;
-                                        case 3:
-                                          code = 'pa';
-                                          name = 'Punjabi';
-                                          nativeName = 'ਪੰਜਾਬੀ';
-                                          break;
-                                        case 4:
-                                          code = 'te';
-                                          name = 'Telugu';
-                                          nativeName = 'తెలుగు';
-                                          break;
-                                        case 5:
-                                          code = 'mr';
-                                          name = 'Marathi';
-                                          nativeName = 'मराठी';
-                                          break;
-                                      }
-
-                                      final isSelected = code == 'en'; // Placeholder logic
-
-                                      return AnimatedContainer(
-                                        duration: const Duration(milliseconds: 200),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? isDarkMode ? Colors.teal[900]! : Colors.teal[50]! // Added ! to handle nullable
-                                              : isDarkMode ? const Color(0xFF303030) : Colors.grey[100]!, // Added ! to handle nullable
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? Colors.teal
-                                                : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
-                                            width: 2,
-                                          ),
-                                        ),
-                                        child: InkWell(
-                                          onTap: () {
-                                            // Just close the sheet for now
-                                            Navigator.pop(context);
-                                          },
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                nativeName,
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isSelected
-                                                      ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
-                                                      : isDarkMode ? Colors.white : Colors.black,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                name,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: isSelected
-                                                      ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
-                                                      : isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
-                                                ),
-                                              ),
-                                              if (isSelected)
-                                                Icon(
-                                                  Icons.check_circle,
-                                                  color: isDarkMode ? Colors.teal[200]! : Colors.teal[800]!, // Added ! to handle nullable
-                                                  size: 20,
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                              // Cancel button
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: ElevatedButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  style: ElevatedButton.styleFrom(
-                                    minimumSize: const Size(double.infinity, 50),
-                                    backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!, // Added ! to handle nullable
-                                    foregroundColor: isDarkMode ? Colors.white : Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Text('Cancel'),
-                                ),
-                              ),
-                            ],
+                            color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      );
-                    },
+                        // Title
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            'Select Language',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
+                          ),
+                        ),
+                        // Language Grid
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: GridView.builder(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 1.5,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
+                              itemCount: 6, // Six languages
+                              itemBuilder: (context, index) {
+                                // Define language options inline
+                                String code = '', name = '', nativeName = '';
+
+                                switch(index) {
+                                  case 0:
+                                    code = 'en';
+                                    name = 'English';
+                                    nativeName = 'English';
+                                    break;
+                                  case 1:
+                                    code = 'hi';
+                                    name = 'Hindi';
+                                    nativeName = 'हिन्दी';
+                                    break;
+                                  case 2:
+                                    code = 'bn';
+                                    name = 'Bengali';
+                                    nativeName = 'বাংলা';
+                                    break;
+                                  case 3:
+                                    code = 'pa';
+                                    name = 'Punjabi';
+                                    nativeName = 'ਪੰਜਾਬੀ';
+                                    break;
+                                  case 4:
+                                    code = 'te';
+                                    name = 'Telugu';
+                                    nativeName = 'తెలుగు';
+                                    break;
+                                  case 5:
+                                    code = 'mr';
+                                    name = 'Marathi';
+                                    nativeName = 'मराठी';
+                                    break;
+                                }
+
+                                final isSelected = code == 'en'; // Placeholder logic
+
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? isDarkMode ? Colors.teal[900]! : Colors.teal[50]! // Added ! to handle nullable
+                                        : isDarkMode ? const Color(0xFF303030) : Colors.grey[100]!, // Added ! to handle nullable
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? Colors.teal
+                                          : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: InkWell(
+                                    onTap: () {
+                                      // Just close the sheet for now
+                                      Navigator.pop(context);
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          nativeName,
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: isSelected
+                                                ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
+                                                : isDarkMode ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          name,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: isSelected
+                                                ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
+                                                : isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          Icon(
+                                            Icons.check_circle,
+                                            color: isDarkMode ? Colors.teal[200]! : Colors.teal[800]!, // Added ! to handle nullable
+                                            size: 20,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        // Cancel button
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 50),
+                              backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!, // Added ! to handle nullable
+                              foregroundColor: isDarkMode ? Colors.white : Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
 
 
             // Feedback and support section
@@ -3566,148 +4177,148 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 // Show help dialog
                 showDialog(
                   context: context,
-    builder: (context) => AlertDialog(
-    title: const Text('Help & Support'),
-    content: Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: const [
-    Text('Need help with Classico?'),
-    SizedBox(height: 8),
-    Text('Email: support@classico.app'),
-    Text('Phone: +1 (555) 123-4567'),
-    SizedBox(height: 16),
-    Text('App Version: 1.0.0'),
-    ],
-    ),
-    actions: [
-    TextButton(
-    onPressed: () => Navigator.pop(context),
-    child: const Text('CLOSE'),
-    ),
-    ],
-    ),
-    );
-    },
-    ),
+                  builder: (context) => AlertDialog(
+                    title: const Text('Help & Support'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Need help with Classico?'),
+                        SizedBox(height: 8),
+                        Text('Email: support@classico.app'),
+                        Text('Phone: +1 (555) 123-4567'),
+                        SizedBox(height: 16),
+                        Text('App Version: 1.0.0'),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('CLOSE'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
 
-    // NEW: App feedback submission
-    ListTile(
-    leading: Container(
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-    color: isDarkMode ? Colors.green[900] : Colors.green[50],
-    shape: BoxShape.circle,
-    ),
-    child: Icon(
-    Icons.feedback,
-    color: isDarkMode ? Colors.green[300] : Colors.green[600],
-    ),
-    ),
-    title: Text(
-    'Submit Feedback',
-    style: TextStyle(
-    color: isDarkMode ? Colors.white : Colors.black,
-    ),
-    ),
-    subtitle: const Text('Help us improve your experience'),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: _showFeedbackDialog,
-    ),
+            // NEW: App feedback submission
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.green[900] : Colors.green[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.feedback,
+                  color: isDarkMode ? Colors.green[300] : Colors.green[600],
+                ),
+              ),
+              title: Text(
+                'Submit Feedback',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: const Text('Help us improve your experience'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showFeedbackDialog,
+            ),
 
 
 
 
 // Widget list continues here
-        ListTile(
-        leading: Container(
-        padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-    color: isDarkMode ? Colors.amber[900] : Colors.amber[50],
-    shape: BoxShape.circle,
-    ),
-    child: Icon(
-    Icons.star,
-    color: isDarkMode ? Colors.amber[300] : Colors.amber[600],
-    ),
-    ),
-    title: Text(
-    'Rate Our App',
-    style: TextStyle(
-    color: isDarkMode ? Colors.white : Colors.black,
-    ),
-    ),
-    subtitle: const Text('Enjoying TrainSocial? Let us know!'),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: () => _showRatingDialog(),
-    ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.amber[900] : Colors.amber[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.star,
+                  color: isDarkMode ? Colors.amber[300] : Colors.amber[600],
+                ),
+              ),
+              title: Text(
+                'Rate Our App',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+              subtitle: const Text('Enjoying TrainSocial? Let us know!'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showRatingDialog(),
+            ),
 
-    const SizedBox(height: 10),
-    const Divider(),
+            const SizedBox(height: 10),
+            const Divider(),
 
 // Account management section (Logout and Delete)
-    Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    child: Text(
-    'Account Management',
-    style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-    color: isDarkMode ? Colors.white : Colors.black,
-    ),
-    ),
-    ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Account Management',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+              ),
+            ),
 
 // Logout button - fixed implementation
-    ListTile(
-    leading: Container(
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-    color: isDarkMode ? Colors.orange[900] : Colors.orange[50],
-    shape: BoxShape.circle,
-    ),
-    child: Icon(
-    Icons.logout,
-    color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
-    ),
-    ),
-    title: Text(
-    'Log Out',
-    style: TextStyle(
-    color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
-    fontWeight: FontWeight.w500,
-    ),
-    ),
-    onTap: () => _handleLogout(),
-    ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.orange[900] : Colors.orange[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.logout,
+                  color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
+                ),
+              ),
+              title: Text(
+                'Log Out',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () => _handleLogout(),
+            ),
 
 // NEW: Delete account option
-    ListTile(
-    leading: Container(
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-    color: isDarkMode ? Colors.red[900] : Colors.red[50],
-    shape: BoxShape.circle,
-    ),
-    child: Icon(
-    Icons.delete_forever,
-    color: isDarkMode ? Colors.red[300] : Colors.red,
-    ),
-    ),
-    title: const Text(
-    'Delete Account',
-    style: TextStyle(
-    color: Colors.red,
-    fontWeight: FontWeight.w500,
-    ),
-    ),
-    subtitle: const Text('Permanently remove your account and data'),
-    onTap: () => _showDeleteAccountDialog(),
-    ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.red[900] : Colors.red[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.delete_forever,
+                  color: isDarkMode ? Colors.red[300] : Colors.red,
+                ),
+              ),
+              title: const Text(
+                'Delete Account',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: const Text('Permanently remove your account and data'),
+              onTap: () => _showDeleteAccountDialog(),
+            ),
 
-    const SizedBox(height: 30),
-    ],
-    ),
+            const SizedBox(height: 30),
+          ],
+        ),
       ),
     );
   }
