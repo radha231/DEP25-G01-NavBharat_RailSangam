@@ -224,16 +224,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.pop(context); // Pop loading dialog
                         Navigator.pop(context); // Pop registration dialog
 
-                        // Navigate to LoginPage
-
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('user_email',  _emailController.text.trim());
-
-                        Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => LoginPage(emailId: _emailController.text.trim())) // Change LoginPage() if needed
-                        );
-
                         // Show success message
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -241,6 +231,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             backgroundColor: Colors.green,
                           ),
                         );
+
+                        // Navigate back to the login screen
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => LoginScreen()),
+                        );
+
                       } on FirebaseAuthException catch (e) {
                         // Hide loading indicator
                         Navigator.pop(context);
@@ -274,7 +271,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: const Text('Register'),
                 ),
-
               ],
             );
           },
