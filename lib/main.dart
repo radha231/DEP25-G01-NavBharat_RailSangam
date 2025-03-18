@@ -395,12 +395,14 @@ class _LoginPageState extends State<LoginPage> {
                                       'timestamp': FieldValue.serverTimestamp(), // To track entry time
                                     }).then((_) {
                                       // Navigate to Home Page after successful Firestore entry
+                                      print('Navigating to LoginPage');
                                       Navigator.pushReplacement(
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) => HomePage(selectedTrain: selectedTrain!, emailId: emailId, travelDate: travelDate!, selectedCoach: selectedCoach!, trainNo: trainNumberInput,),
                                         ),
                                       );
+                                      print('Successfully Navigated to LoginPage');
                                     }).catchError((error) {
                                       // Handle errors if the Firestore entry fails
                                       print("Failed to add journey: $error");
