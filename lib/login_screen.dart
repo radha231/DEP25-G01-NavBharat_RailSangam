@@ -227,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Navigate to LoginPage
 
                         final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('user_email', _emailController as String);
+                        await prefs.setString('user_email',  _emailController.text.trim());
 
                         Navigator.pushReplacement(
                             context,
