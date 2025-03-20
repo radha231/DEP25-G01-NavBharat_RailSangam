@@ -1168,6 +1168,7 @@ class TravelersPage extends StatefulWidget {
   _TravelersPageState createState() => _TravelersPageState(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo);
 }
 
+
 class _TravelersPageState extends State<TravelersPage> {
   final String emailId;
   final String travelDate;
@@ -1175,12 +1176,41 @@ class _TravelersPageState extends State<TravelersPage> {
   final String trainNo;
   _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
   // User's own data
-  final Map<String, dynamic> currentUser = {
-    'name': 'Puneet',
+
+
+  Map<String, dynamic> currentUser = {
+    'name': 'Loading...',
     'avatar': 'assets/images/sam.jpeg',
-    'stories': [], // Initially empty
+    'stories': [],
   };
 
+  Future<Map<String, dynamic>> _fetchCurrentUserDetails() async {
+    try {
+      final QuerySnapshot userSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (userSnapshot.docs.isNotEmpty) {
+        final userDoc = userSnapshot.docs.first;
+        final userData = userDoc.data() as Map<String, dynamic>;
+
+        // Return the current user's details (without 'stories')
+        return {
+          'name': userData['Name'] ?? 'Unknown',
+          'avatar': userData['avatar'] ?? 'assets/images/sam.jpeg',
+        };
+      } else {
+        throw Exception('Current user document not found: $emailId');
+      }
+    } catch (e) {
+      print('Error fetching current user details: $e');
+      return {
+        'name': 'Unknown',
+        'avatar': 'assets/images/sam.jpeg',
+      };
+    }
+  }
   // Bluish gradient colors
   final Gradient buttonGradient = LinearGradient(
     colors: [
@@ -1192,43 +1222,12 @@ class _TravelersPageState extends State<TravelersPage> {
   );
 
   // Sample data for friends
-  final List<Map<String, dynamic>> friends = [
-    {
-      'name': 'Rakshit',
-      'avatar': 'assets/images/steven.jpeg',
-      'stories': [
-        {
-          'image': 'assets/images/pic1.jpg',
-          'caption': 'Amazing Train View',
-          'likes': 25,
-          'comments': 4,
-        },
-        {
-          'image': 'assets/images/pic1.jpg',
-          'caption': 'Sunset at the beach',
-          'likes': 378,
-          'comments': 62,
-        }
-      ]
-    },
-    {
-      'name': 'Nishant',
-      'avatar': 'assets/images/john.jpeg',
-      'stories': [
-        {
-          'image': 'assets/images/pic1.jpg',
-          'caption': 'Exploring new views from train',
-          'likes': 41,
-          'comments': 7,
-        }
-      ]
-    },
-    // Add more friends as needed
-  ];
+
+
+  List<Map<String, dynamic>> _allSuggestedUsers = []; // Original list
 
   // Hover state tracking
-  bool _isAddStoryHovered = false;
-  Map<String, bool> _friendHoverStates = {};
+  List<dynamic> following =[];
   final Map<String, bool> _followRequestStates = {};
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> suggestedUsers = [];
@@ -1237,15 +1236,155 @@ class _TravelersPageState extends State<TravelersPage> {
   void initState() {
     super.initState();
     // Initialize hover states for friends
+    _fetchCurrentUserDetails().then((userDetails) {
+      setState(() {
+        currentUser = userDetails; // Update the currentUser map
+      });
+    });
     _fetchSuggestedUsers();
-
-    _friendHoverStates = {for (var friend in friends) friend['name']: false};
     _removeOverlappingRejectedRequests(emailId);
   }
 
-
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
+
+
+  String? selectedProfession;
+  String? selectedAgeGroup;
+  String? selectedGender;
+
+  // Define lists for dropdown options
+  final List<String> professions = ['Engineer', 'Doctor', 'Teacher', 'Artist', 'Student'];
+  final List<String> ageGroups = ['18-25', '26-35', '36-45', '46+'];
+  final List<String> genders = ['Male', 'Female', 'Other'];
+
+  // Add a method to build the filter row
+  Widget _buildFilterRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+      child: Row(
+        children: [
+          // Profession Dropdown
+          Expanded(
+            child: DropdownButton<String>(
+              value: selectedProfession,
+              hint: Text('Profession'),
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedProfession = newValue;
+                });
+              },
+              items: professions.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(width: 10),
+          // Age Group Dropdown
+          Expanded(
+            child: DropdownButton<String>(
+              value: selectedAgeGroup,
+              hint: Text('Age Group'),
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedAgeGroup = newValue;
+                });
+              },
+              items: ageGroups.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(width: 10),
+          // Gender Dropdown
+          Expanded(
+            child: DropdownButton<String>(
+              value: selectedGender,
+              hint: Text('Gender'),
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedGender = newValue;
+                });
+              },
+              items: genders.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add a method to build the search and clear filter buttons
+  Widget _buildFilterButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () {
+                _applyFilters();
+              },
+              child: Text('Search'),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () {
+                _clearFilters();
+              },
+              child: Text('Clear Filters'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      // Filter the original list (_allSuggestedUsers) based on selected criteria
+      suggestedUsers = _allSuggestedUsers.where((user) {
+        bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
+        bool matchesAgeGroup = selectedAgeGroup == null || user['AgeGroup'] == selectedAgeGroup;
+        bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
+
+        // Debug logs
+        print('User: ${user['email_id']}');
+        print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
+        print('AgeGroup: ${user['AgeGroup']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
+        print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
+        print('---');
+
+        return matchesProfession && matchesAgeGroup && matchesGender;
+      }).toList();
+    });
+
+    // Debug log to check the filtered list
+    print('Filtered Users: ${suggestedUsers.length}');
+  }
+
+  // Add a method to clear filters
+  void _clearFilters() {
+    setState(() {
+      selectedProfession = null;
+      selectedAgeGroup = null;
+      selectedGender = null;
+      suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
+    });
+  }
 
 
   Future<void> _fetchSuggestedUsers() async {
@@ -1269,8 +1408,7 @@ class _TravelersPageState extends State<TravelersPage> {
 
       // Get the current user's pendingApprovals list
       final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
-      final List<dynamic> following = currentUserData['following'] ?? [];
-
+      following = currentUserData['following'] ?? [];
       // Fetch all users in the same journey (train, coach, and date)
       final QuerySnapshot journeySnapshot = await _firestore
           .collection('Journey')
@@ -1301,6 +1439,7 @@ class _TravelersPageState extends State<TravelersPage> {
 
       setState(() {
         suggestedUsers = users;
+        _allSuggestedUsers = List.from(users); // Store the original list
         _isLoading = false;
       });
     } catch (e) {
@@ -1618,114 +1757,6 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
-  // Method to add a new story
-  void _addNewStory() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Add New Story',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 16),
-              _buildStoryOption(
-                  icon: Icons.camera_alt,
-                  title: 'Take Photo',
-                  onTap: () {
-                    // Implement camera functionality
-                    Navigator.pop(context);
-                  }
-              ),
-              _buildStoryOption(
-                  icon: Icons.photo_library,
-                  title: 'Choose from Gallery',
-                  onTap: () {
-                    // Implement gallery selection
-                    Navigator.pop(context);
-                  }
-              ),
-              _buildStoryOption(
-                  icon: Icons.videocam,
-                  title: 'Record Video',
-                  onTap: () {
-                    // Implement video recording
-                    Navigator.pop(context);
-                  }
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Helper method for story options with hover effect
-  Widget _buildStoryOption({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap
-  }) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: ListTile(
-          leading: Icon(icon, color: Color(0xFF4A89DC)),
-          title: Text(title),
-        ),
-      ),
-    );
-  }
-
-
-  // Method to show story viewer
-  void _showStoryViewer(Map<String, dynamic> friend) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          child: Container(
-            width: 300,
-            height: 500,
-            child: Column(
-              children: [
-                Expanded(
-                  child: PageView.builder(
-                    itemCount: friend['stories'].length,
-                    itemBuilder: (context, index) {
-                      final story = friend['stories'][index];
-                      return Image.asset(
-                        story['image'],
-                        fit: BoxFit.cover,
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    friend['name'] + "'s Stories",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Future<List<Map<String, dynamic>>> _fetchFollowRequests() async {
     try {
@@ -1833,29 +1864,12 @@ class _TravelersPageState extends State<TravelersPage> {
                       ),
                     ),
                   ),
-                // // Show accepted requests notifications
-                // ...acceptedRequests.map((email) {
-                //   return ListTile(
-                //     leading: Icon(Icons.check_circle, color: Colors.green),
-                //     title: Text('$email has accepted your request!'),
-                //     subtitle: Text('You are now following $email.'),
-                //   );
-                // }).toList(),
-                // Show rejected requests notifications
-                // ...cleanedRejectedRequests.map((email) {
-                //   return ListTile(
-                //     leading: Icon(Icons.cancel, color: Colors.red),
-                //     title: Text('$email has rejected your request.'),
-                //     subtitle: Text('You can send a new request from suggestions.'),
-                //   );
-                // }).toList(),
-                // Show pending follow requests
                 ...followRequests.map((user) {
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundImage: user['avatar'] != null
                           ? AssetImage(user['avatar'])
-                          : AssetImage('assets/images/default_avatar.png'),
+                          : AssetImage('assets/images/sam.jpeg'),
                     ),
                     title: Text(user['name'] ?? 'Unknown'),
                     subtitle: Text(user['email']),
@@ -1910,251 +1924,6 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
-  // Friend story builder with hover effects
-  Widget _buildFriendStory(Map<String, dynamic> friend) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _friendHoverStates[friend['name']] = true),
-      onExit: (_) => setState(() => _friendHoverStates[friend['name']] = false),
-      child: GestureDetector(
-        onTap: () => _showStoryViewer(friend),
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          transform: Matrix4.identity()..scale(_friendHoverStates[friend['name']] == true ? 1.1 : 1.0),
-          child: Column(
-            children: [
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(friend['avatar']),
-                    fit: BoxFit.cover,
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _friendHoverStates[friend['name']] == true
-                        ? Color(0xFF4A89DC).withOpacity(0.7)
-                        : Color(0xFF4A89DC),
-                    width: 2,
-                  ),
-                  boxShadow: _friendHoverStates[friend['name']] == true
-                      ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      spreadRadius: 2,
-                      blurRadius: 5,
-                      offset: Offset(0, 3),
-                    )
-                  ]
-                      : [],
-                ),
-              ),
-              SizedBox(height: 5),
-              Text(
-                friend['name'].split(' ')[0],
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 12,
-                  fontWeight: _friendHoverStates[friend['name']] == true
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Your Story builder with hover effects
-  Widget _buildYourStory() {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isAddStoryHovered = true),
-      onExit: (_) => setState(() => _isAddStoryHovered = false),
-      child: GestureDetector(
-        onTap: _addNewStory,
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          transform: Matrix4.identity()..scale(_isAddStoryHovered ? 1.1 : 1.0),
-          child: Column(
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(currentUser['avatar']),
-                        fit: BoxFit.cover,
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _isAddStoryHovered
-                            ? Color(0xFF4A89DC).withOpacity(0.7)
-                            : Colors.grey.shade300,
-                        width: 2,
-                      ),
-                      boxShadow: _isAddStoryHovered
-                          ? [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          spreadRadius: 2,
-                          blurRadius: 5,
-                          offset: Offset(0, 3),
-                        )
-                      ]
-                          : [],
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Color(0xFF4A89DC),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 2,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 5),
-              Text(
-                'Your Story',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 12,
-                  fontWeight: _isAddStoryHovered ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Widget to build a traveler's post card
-  Widget _buildTravelerPostCard(Map<String, dynamic> friend, Map<String, dynamic> story) {
-    return Card(
-      margin: EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Post Image
-          ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-            child: Image.asset(
-              story['image'], // Replace with your actual image path
-              width: double.infinity,
-              height: 250,
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Post Details
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // User Info
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundImage: AssetImage(friend['avatar']),
-                      radius: 20,
-                    ),
-                    SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          friend['name'],
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '2 hours ago',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                // Caption
-                Text(
-                  story['caption'],
-                  style: TextStyle(
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 10),
-                // Interactions
-                Row(
-                  children: [
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () {
-                          // Like functionality
-                        },
-                        child: Row(
-                          children: [
-                            Icon(Icons.favorite_border, color: Colors.grey),
-                            SizedBox(width: 5),
-                            Text('${story['likes']} Likes'),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 20),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () {
-                          // Comment functionality
-                        },
-                        child: Row(
-                          children: [
-                            Icon(Icons.comment_outlined, color: Colors.grey),
-                            SizedBox(width: 5),
-                            Text('${story['comments']} Comments'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
     try {
       final QuerySnapshot userSnapshot = await _firestore
@@ -2180,58 +1949,7 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
-  // Show suggestions bottom sheet
-  void _showSuggestionsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Traveller Suggestions',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 16),
-              if (suggestedUsers.isEmpty)
-                Center(child: Text('No suggestions available.')),
-              ...suggestedUsers.map((user) {
-                // Use FutureBuilder to fetch Name and avatar from Users collection
-                return FutureBuilder<Map<String, dynamic>>(
-                  future: _fetchUserDetails(user['email_id']), // Fetch user details
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return CircularProgressIndicator(); // Show loading indicator
-                    } else if (snapshot.hasError) {
-                      return ListTile(
-                        title: Text('Error loading user details'),
-                      );
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return ListTile(
-                        title: Text('User details not found'),
-                      );
-                    } else {
-                      final userDetails = snapshot.data!;
-                      return _buildSuggestionTile(
-                        avatar: userDetails['avatar'] as String?, // Cast to String?
-                        name: userDetails['Name'] as String?, // Cast to String?
-                        email: user['email_id'] as String?, // Cast to String?
-                      );
-                    }
-                  },
-                );
-              }).toList(),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  
 
   // Helper method for suggestion tiles
   Widget _buildSuggestionTile({
@@ -2251,7 +1969,7 @@ class _TravelersPageState extends State<TravelersPage> {
       leading: CircleAvatar(
         backgroundImage: avatar != null
             ? AssetImage(avatar)
-            : AssetImage('assets/images/default_avatar.png'),
+            : AssetImage('assets/images/sam.jpeg'),
       ),
       title: Text(name ?? 'Unknown'),
       subtitle: Text(email),
@@ -2265,7 +1983,7 @@ class _TravelersPageState extends State<TravelersPage> {
       ),
     );
   }
-  @override
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2327,42 +2045,97 @@ class _TravelersPageState extends State<TravelersPage> {
               );
             },
           ),
-          _buildHoverableIconButton(
-            icon: Icons.person_add_rounded,
-            color: Colors.black,
-            onPressed: () {
-              print('Suggestion Button Pressed');
-              _showSuggestionsBottomSheet();
-            },
-          ),
+          // Suggestions icon has been removed
         ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Friends Horizontal Scroll
+          // Current User and Following Users' Avatars
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
             child: Row(
               children: [
+                // Current User's Avatar
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        backgroundImage: AssetImage(currentUser['avatar']),
+                        radius: 30,
+                      ),
+                      SizedBox(height: 5),
+                      Text(
+                        currentUser['name'] ?? 'You', // Display current user's name
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Following Users' Avatars
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: [
-                        // Your Story first
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: _buildYourStory(),
-                        ),
-                        // Other friends stories
-                        ...friends.map((friend) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: _buildFriendStory(friend),
-                          );
-                        }).toList(),
-                      ],
+                      children: following.map((email) {
+                        return FutureBuilder<Map<String, dynamic>>(
+                          future: _fetchUserDetails(email),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return CircularProgressIndicator();
+                            } else if (snapshot.hasError) {
+                              return Icon(Icons.error);
+                            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                              return Icon(Icons.person);
+                            } else {
+                              final userDetails = snapshot.data!;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    // Redirect to chat page (HomeScreen)
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => HomeScreen(
+                                          selectedUserEmail: email,
+                                          selectedUserName: userDetails['Name'],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Circular Avatar
+                                      CircleAvatar(
+                                        backgroundImage: userDetails['avatar'] != null
+                                            ? AssetImage(userDetails['avatar'])
+                                            : AssetImage('assets/images/sam.jpeg'),
+                                        radius: 30,
+                                      ),
+                                      SizedBox(height: 5), // Add some spacing
+                                      // User's Name
+                                      Text(
+                                        userDetails['Name'] ?? 'Unknown', // Display the name
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      }).toList(),
                     ),
                   ),
                 ),
@@ -2370,11 +2143,10 @@ class _TravelersPageState extends State<TravelersPage> {
             ),
           ),
 
-          // Travelers Feed Section
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              'Travellers Feed',
+              'Travellers Suggestions',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -2382,15 +2154,42 @@ class _TravelersPageState extends State<TravelersPage> {
               ),
             ),
           ),
+
+          // Add the filter row
+          _buildFilterRow(),
+
+          // Add the filter buttons
+          _buildFilterButtons(),
+
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.symmetric(horizontal: 16),
-              itemCount: friends.length,
+              itemCount: suggestedUsers.length,
               itemBuilder: (context, index) {
-                final friend = friends[index];
-                return friend['stories'].isNotEmpty
-                    ? _buildTravelerPostCard(friend, friend['stories'][0])
-                    : SizedBox.shrink();
+                final user = suggestedUsers[index];
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: _fetchUserDetails(user['email_id']),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircularProgressIndicator();
+                    } else if (snapshot.hasError) {
+                      return ListTile(
+                        title: Text('Error loading user details'),
+                      );
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return ListTile(
+                        title: Text('User details not found'),
+                      );
+                    } else {
+                      final userDetails = snapshot.data!;
+                      return _buildSuggestionTile(
+                        avatar: userDetails['avatar'] as String?,
+                        name: userDetails['Name'] as String?,
+                        email: user['email_id'] as String?,
+                      );
+                    }
+                  },
+                );
               },
             ),
           ),
@@ -2398,7 +2197,6 @@ class _TravelersPageState extends State<TravelersPage> {
       ),
     );
   }
-
 
   void _showPendingApprovals() async {
     try {
@@ -2468,7 +2266,7 @@ class _TravelersPageState extends State<TravelersPage> {
                           leading: CircleAvatar(
                             backgroundImage: userDetails['avatar'] != null
                                 ? AssetImage(userDetails['avatar'])
-                                : AssetImage('assets/images/default_avatar.png'),
+                                : AssetImage('assets/images/sam.jpeg'),
                           ),
                           title: Text(userDetails['Name'] ?? 'Unknown'),
                           subtitle: Text(email),
