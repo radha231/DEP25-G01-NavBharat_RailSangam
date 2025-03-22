@@ -2886,12 +2886,33 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final String emailId;
-  String? currentAvatarUrl;
+  String? currentAvatarUrl; // To store the current avatar URL
+  String? name;
+  List<String>? interests;
 
   _ProfilePageState({required this.emailId});
 
-  String? name;
-  List<String>? interests;
+  Future<void> _fetchUserData() async {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final DocumentSnapshot document = snapshot.docs.first;
+
+      // Check if fields exist and are not null
+      if (document['Name'] != null && document['Interests'] != null) {
+        setState(() {
+          name = document['Name'];
+          interests = List<String>.from(document['Interests']);
+          currentAvatarUrl = document['avatar']; // Fetch the avatar URL
+        });
+      } else {
+        print('Name or Interests field is missing or null');
+      }
+    } else {
+      print('No user found with email: $emailId');
+    }
+  }
 
   @override
   void initState() {
@@ -2899,52 +2920,35 @@ class _ProfilePageState extends State<ProfilePage> {
     _fetchUserData();
   }
 
-  Future<void> _fetchUserData() async {
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    final QuerySnapshot snapshot = await firestore
-        .collection('Users')
-        .where('email_Id', isEqualTo: emailId)
-        .get();
-
-    if (snapshot.docs.isNotEmpty) {
-      final DocumentSnapshot document = snapshot.docs.first;
-      setState(() {
-        name = document['Name'];
-        interests = List<String>.from(document['Interests']);
-        currentAvatarUrl = document['avatar'];
-      });
-    } else {
-      print('No user found with email: $emailId');
-    }
-  }
-
   bool showSettings = false;
 
-  Future<String> _fetchAvatar(String identifier) async {
-    final response = await http.get(
-      Uri.parse('https://api.multiavatar.com/$identifier.png'),
-      headers: {
-        'User-Agent': 'YourAppName/1.0', // Add a User-Agent header
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return response.body;
-    } else {
-      throw Exception('Failed to load avatar: ${response.statusCode}');
-    }
-  }
-
   void _showAvatarSelectionDialog() {
+    // List of 8 male and 8 female Indian names
     final List<String> indianNames = [
-      'Aarav', 'Vihaan', 'Arjun', 'Rohan', 'Kabir', 'Dhruv', 'Krish', 'Pranav',
-      'Aanya', 'Ananya', 'Diya', 'Kavya', 'Myra', 'Riya', 'Saanvi', 'Tara',
+      'Aarav', 'Vihaan', 'Arjun', 'Rohan', 'Kabir', 'Dhruv', 'Krish', 'Pranav', // Male names
+      'Aanya', 'Ananya', 'Radha', 'Kavya', 'Myra', 'Riya', 'Saanvi', 'Tara',     // Female names
     ];
 
-
-    final List<String> avatarUrls = indianNames.map((name) => 'https://api.multiavatar.com/$name.png').toList();
-
-
+    // Generate avatar URLs using DiceBear
+    final List<String> avatarUrls = [
+      "https://api.dicebear.com/7.x/micah/svg?seed=155&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=200&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=34&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=48&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=5&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=6&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=7&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=8&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=9&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=10&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=11&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=12&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=13&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=14&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=15&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=16&smile[]=happy",
+    ];
+    // Show the dialog box
     showDialog(
       context: context,
       builder: (context) {
@@ -2955,7 +2959,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: GridView.builder(
               shrinkWrap: true,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
+                crossAxisCount: 4, // 4 avatars per row
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
               ),
@@ -2963,18 +2967,13 @@ class _ProfilePageState extends State<ProfilePage> {
               itemBuilder: (context, index) {
                 return GestureDetector(
                   onTap: () {
+                    // Update the profile picture with the selected avatar
                     _updateProfilePicture(avatarUrls[index]);
-                    Navigator.pop(context);
+                    Navigator.pop(context); // Close the dialog
                   },
-                  child: Image.network(
+                  child: SvgPicture.network(
                     avatarUrls[index],
                     fit: BoxFit.cover,
-                    headers: {
-                      'User-Agent': 'YourAppName/1.0', // Add a User-Agent header
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.error, color: Colors.red);
-                    },
                   ),
                 );
               },
@@ -2983,7 +2982,7 @@ class _ProfilePageState extends State<ProfilePage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(context); // Close the dialog
               },
               child: const Text('Cancel'),
             ),
@@ -2995,17 +2994,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _updateProfilePicture(String avatarUrl) async {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    final QuerySnapshot snapshot = await firestore
-        .collection('Users')
-        .where('email_Id', isEqualTo: emailId)
-        .get();
+    final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
 
     if (snapshot.docs.isNotEmpty) {
       final DocumentSnapshot document = snapshot.docs.first;
       await document.reference.update({
-        'avatar': avatarUrl,
+        'avatar': avatarUrl, // Save the avatar URL
       });
 
+      // Update the UI
       setState(() {
         currentAvatarUrl = avatarUrl;
       });
@@ -3022,56 +3019,47 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    // First check if we should show settings screen
     if (showSettings) {
       return AccountSettingsScreen(
         onBack: () => setState(() => showSettings = false),
         onLogout: () {
           // Add your logout logic here
+          // For example: AuthService.logout();
+          // Then navigate to login page or perform any other actions
         },
       );
     }
 
+    // If not showing settings, prepare measurements for the profile page
     final screenHeight = MediaQuery.of(context).size.height;
-    final profileImageHeight = screenHeight * 0.55;
+    final profileImageHeight = screenHeight * 0.55; // Adjusted to take less space
 
+    // Return the main profile layout
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Column(
         children: [
+          // Top portion with profile image and controls
           Stack(
             clipBehavior: Clip.none,
             children: [
-        Container(
-        height: profileImageHeight,
-        width: double.infinity,
-        child: currentAvatarUrl != null
-            ? Image.network(
-          currentAvatarUrl!,
-          fit: BoxFit.cover,
-          headers: {
-            'User-Agent': 'YourAppName/1.0', // Add a User-Agent header
-          },
-          errorBuilder: (context, error, stackTrace) {
-            // Fallback widget if the image fails to load
-            return Container(
-              color: Colors.grey[300],
-              child: Icon(
-                Icons.person,
-                size: 100,
-                color: Colors.grey[600],
+              // Profile image container
+              Container(
+                height: profileImageHeight,
+                width: double.infinity,
+                child: currentAvatarUrl != null
+                    ? SvgPicture.network(
+                  currentAvatarUrl!,
+                  fit: BoxFit.cover,
+                )
+                    : Image.asset(
+                  'assets/images/sam.jpeg', // Fallback image
+                  fit: BoxFit.cover,
+                ),
               ),
-            );
-          },
-        )
-            : Container(
-          color: Colors.grey[300],
-          child: Icon(
-            Icons.person,
-            size: 100,
-            color: Colors.grey[600],
-          ),
-        ),
-      ),
+
+              // Settings button (top right)
               Positioned(
                 top: 40,
                 right: 16,
@@ -3097,11 +3085,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               ),
+
+              // Edit profile picture button
               Positioned(
                 bottom: 10,
                 right: 20,
                 child: GestureDetector(
-                  onTap: _showAvatarSelectionDialog,
+                  onTap: _showAvatarSelectionDialog, // Updated method
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -3125,6 +3115,8 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
+
+          // Profile information section - now BELOW the profile image
           Expanded(
             child: Container(
               color: Colors.white,
@@ -3133,6 +3125,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Name and status
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -3144,8 +3137,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.blue[50],
                             borderRadius: BorderRadius.circular(12),
@@ -3175,6 +3167,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     const SizedBox(height: 10),
+
+                    // Occupation and location
                     Row(
                       children: [
                         Icon(
@@ -3207,6 +3201,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     const SizedBox(height: 25),
+
+                    // About section
                     const Text(
                       'About',
                       style: TextStyle(
@@ -3224,6 +3220,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 25),
+
+                    // Interests section
                     const Text(
                       'Interests',
                       style: TextStyle(
@@ -3232,15 +3230,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 15),
+
+                    // Interest buttons
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: interests
-                          ?.map((interest) => _buildInterestButton(interest))
-                          ?.toList() ??
-                          [],
+                      children: interests?.map((interest) =>
+                          _buildInterestButton(interest)
+                      )?.toList() ?? [], // Handle null interests with empty list
                     ),
                     const SizedBox(height: 25),
+
+                    // Placeholder for additional stats section
+                    const SizedBox(height: 15),
                   ],
                 ),
               ),
