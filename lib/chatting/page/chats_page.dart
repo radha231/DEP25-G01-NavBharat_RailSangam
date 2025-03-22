@@ -3,6 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
+  final String? selectedUserEmail; // Selected user's email
+  final String? selectedUserName; // Selected user's name
+
+  HomeScreen({this.selectedUserEmail, this.selectedUserName});
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
@@ -15,8 +19,52 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _fetchCurrentUserEmail();
+
+    // Open the message dialog if a selected user is provided
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.selectedUserEmail != null && widget.selectedUserName != null) {
+        _showMessageDialogRedirectedFromTravelersPage(widget.selectedUserEmail!, widget.selectedUserName!);
+      }
+    });
   }
 
+
+  void _showMessageDialogRedirectedFromTravelersPage(String recipientEmail, String recipientName) async {
+    final messageController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Send Message to $recipientName'),
+          content: TextField(
+            controller: messageController,
+            decoration: InputDecoration(
+              labelText: 'Message',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final message = messageController.text;
+                if (message.isNotEmpty) {
+                  await _sendMessage(recipientEmail, message);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Text('Send'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   void _fetchCurrentUserEmail() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
