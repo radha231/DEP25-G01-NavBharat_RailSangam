@@ -35,6 +35,14 @@ class _LoginScreenState extends State<LoginScreen> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        String? selectedAgeGroup;
+        String? selectedProfession;
+        String? selectedGender;
+
+        List<String> ageGroups = ['18-24', '25-34', '35-44', '45-54', '55+'];
+        List<String> professions = ['Student', 'Engineer', 'Doctor', 'Artist', 'Other'];
+        List<String> genders = ['Male', 'Female'];
+
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -45,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Full Name
                       TextFormField(
                         controller: nameController,
                         decoration: InputDecoration(
@@ -59,6 +68,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       SizedBox(height: 12),
+
+                      // Email
                       TextFormField(
                         controller: emailController,
                         decoration: InputDecoration(
@@ -77,6 +88,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       SizedBox(height: 12),
+
+                      // Password
                       TextFormField(
                         controller: passwordController,
                         decoration: InputDecoration(
@@ -94,7 +107,66 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
+                      SizedBox(height: 12),
+
+                      // Age Group Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedAgeGroup,
+                        decoration: InputDecoration(
+                          labelText: 'Age Group',
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
+                        items: ageGroups.map((age) {
+                          return DropdownMenuItem(value: age, child: Text(age));
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedAgeGroup = value;
+                          });
+                        },
+                        validator: (value) => value == null ? 'Please select your age group' : null,
+                      ),
+                      SizedBox(height: 12),
+
+                      // Profession Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedProfession,
+                        decoration: InputDecoration(
+                          labelText: 'Profession',
+                          prefixIcon: Icon(Icons.work),
+                        ),
+                        items: professions.map((prof) {
+                          return DropdownMenuItem(value: prof, child: Text(prof));
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedProfession = value;
+                          });
+                        },
+                        validator: (value) => value == null ? 'Please select your profession' : null,
+                      ),
+                      SizedBox(height: 12),
+
+                      // Gender Dropdown
+                      DropdownButtonFormField<String>(
+                        value: selectedGender,
+                        decoration: InputDecoration(
+                          labelText: 'Gender',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        items: genders.map((gen) {
+                          return DropdownMenuItem(value: gen, child: Text(gen));
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedGender = value;
+                          });
+                        },
+                        validator: (value) => value == null ? 'Please select your gender' : null,
+                      ),
                       SizedBox(height: 16),
+
+                      // Interests Section
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -129,13 +201,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       SizedBox(height: 8),
+
                       if (userInterests.isNotEmpty) ...[
                         Align(
                           alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Your interests:',
-                            style: TextStyle(fontSize: 12),
-                          ),
+                          child: Text('Your interests:', style: TextStyle(fontSize: 12)),
                         ),
                         SizedBox(height: 4),
                         Wrap(
@@ -154,15 +224,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           }).toList(),
                         ),
                       ],
-                      SizedBox(height: 8),
-                      if (userInterests.isEmpty)
-                        Text(
-                          'Please add at least one interest',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -174,102 +235,63 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    // Validate interests
                     if (userInterests.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please add at least one interest')),
+                        SnackBar(content: Text('Please add at least one interest')),
                       );
                       return;
                     }
 
-                    // Validate form
                     if (formKey.currentState!.validate()) {
                       try {
-                        // Show loading indicator
                         showDialog(
                           context: context,
                           barrierDismissible: false,
-                          builder: (BuildContext context) {
-                            return const Center(child: CircularProgressIndicator());
-                          },
+                          builder: (context) => Center(child: CircularProgressIndicator()),
                         );
 
-                        // Create user with email and password
                         final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
                           email: emailController.text.trim(),
                           password: passwordController.text,
                         );
 
-                        // Store additional user data in Firestore
-                        await FirebaseFirestore.instance
-                            .collection('Users')
-                            .doc(userCredential.user!.uid)
-                            .set({
+                        await FirebaseFirestore.instance.collection('Users').doc(userCredential.user!.uid).set({
                           'Name': nameController.text.trim(),
                           'email_Id': emailController.text.trim(),
                           'Password': passwordController.text.trim(),
+                          'Age Group': selectedAgeGroup,
+                          'Profession': selectedProfession,
+                          'Gender': selectedGender,
                           'Interests': userInterests,
                           'createdAt': FieldValue.serverTimestamp(),
-                          'followers': [], // Initialize followers as an empty list
-                          'following': [], // Initialize following as an empty list
-                          'followRequests': [], // Initialize followRequests as an empty list
-                          'pendingApprovals': [], // Initialize pendingApprovals as an empty list
-                          'acceptedRequests': [], // Initialize acceptedRequests as an empty list
-                          'rejectedRequests': [], // Initialize rejectedRequests as an empty list
-                          'notifications': [], // Initialize notifications as an empty list
+                          'followers': [],
+                          'following': [],
+                          'followRequests': [],
+                          'pendingApprovals': [],
+                          'acceptedRequests': [],
+                          'rejectedRequests': [],
+                          'notifications': [],
                           'status': 'active',
                         });
 
-                        // Hide loading indicator and dialog
-                        Navigator.pop(context); // Pop loading dialog
-                        Navigator.pop(context); // Pop registration dialog
-
-                        // Show success message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Registration successful!'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-
-                        // Navigate back to the login screen
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => LoginScreen()),
-                        );
-
-                      } on FirebaseAuthException catch (e) {
-                        // Hide loading indicator
+                        Navigator.pop(context);
                         Navigator.pop(context);
 
-                        // Show error message
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              e.code == 'email-already-in-use'
-                                  ? 'The email address is already in use.'
-                                  : e.code == 'weak-password'
-                                  ? 'The password is too weak.'
-                                  : 'An error occurred: ${e.message}',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
+                          SnackBar(content: Text('Registration successful!'), backgroundColor: Colors.green),
                         );
+
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+
                       } catch (e) {
-                        // Hide loading indicator
                         Navigator.pop(context);
-
-                        // Show error message
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('An error occurred: $e'),
-                            backgroundColor: Colors.red,
-                          ),
+                          SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
                         );
                       }
                     }
                   },
-                  child: const Text('Register'),
+                  child: Text('Register'),
                 ),
               ],
             );
