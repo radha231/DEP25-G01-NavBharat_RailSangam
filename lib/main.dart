@@ -1254,9 +1254,9 @@ class _TravelersPageState extends State<TravelersPage> {
   String? selectedGender;
 
   // Define lists for dropdown options
-  final List<String> professions = ['Engineer', 'Doctor', 'Teacher', 'Artist', 'Student'];
-  final List<String> ageGroups = ['18-25', '26-35', '36-45', '46+'];
-  final List<String> genders = ['Male', 'Female', 'Other'];
+  final List<String> professions = ['Student', 'Engineer', 'Doctor', 'Artist', 'Other'];
+  final List<String> ageGroups = ['18-24', '25-34', '35-44', '45-54', '55+'];
+  final List<String> genders = ['Male', 'Female'];
 
   // Add a method to build the filter row
   Widget _buildFilterRow() {
@@ -1358,13 +1358,13 @@ class _TravelersPageState extends State<TravelersPage> {
       // Filter the original list (_allSuggestedUsers) based on selected criteria
       suggestedUsers = _allSuggestedUsers.where((user) {
         bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
-        bool matchesAgeGroup = selectedAgeGroup == null || user['AgeGroup'] == selectedAgeGroup;
+        bool matchesAgeGroup = selectedAgeGroup == null || user['Age Group'] == selectedAgeGroup;
         bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
 
         // Debug logs
         print('User: ${user['email_id']}');
         print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
-        print('AgeGroup: ${user['AgeGroup']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
+        print('AgeGroup: ${user['Age Group']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
         print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
         print('---');
 
@@ -1406,9 +1406,10 @@ class _TravelersPageState extends State<TravelersPage> {
       final currentUserDoc = currentUserSnapshot.docs.first;
       final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
 
-      // Get the current user's pendingApprovals list
+      // Get the current user's pendingApprovals & following list
       final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
       following = currentUserData['following'] ?? [];
+
       // Fetch all users in the same journey (train, coach, and date)
       final QuerySnapshot journeySnapshot = await _firestore
           .collection('Journey')
@@ -1417,24 +1418,36 @@ class _TravelersPageState extends State<TravelersPage> {
           .where('travel_date', isEqualTo: travelDate.trim())
           .get();
 
-      final Set<String> uniqueEmails = {}; // To store unique email_ids
-      final List<Map<String, dynamic>> users = [];
+      final Set<String> uniqueEmails = {}; // Store unique email_ids
 
       for (var doc in journeySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
 
-        // Exclude the current user and users already in the following list
+        // Exclude the current user and already-followed users
         if (data['email_id'] != emailId &&
-            !following.contains(data['email_id']) &&
             !uniqueEmails.contains(data['email_id'])) {
-          uniqueEmails.add(data['email_id']); // Add email_id to the set
-          users.add(data);
+          uniqueEmails.add(data['email_id']);
+        }
+      }
+
+      // Fetch user details from "Users" collection for uniqueEmails
+      List<Map<String, dynamic>> users = [];
+
+      if (uniqueEmails.isNotEmpty) {
+        final QuerySnapshot usersSnapshot = await _firestore
+            .collection('Users')
+            .where('email_Id', whereIn: uniqueEmails.toList())
+            .get();
+
+        for (var doc in usersSnapshot.docs) {
+          final userData = doc.data() as Map<String, dynamic>;
+          users.add(userData);
         }
       }
 
       // Initialize follow request states
       for (var user in users) {
-        _followRequestStates[user['email_id']] = pendingApprovals.contains(user['email_id']);
+        _followRequestStates[user['email_Id']] = pendingApprovals.contains(user['email_Id']);
       }
 
       setState(() {
@@ -1452,6 +1465,7 @@ class _TravelersPageState extends State<TravelersPage> {
       );
     }
   }
+
   // Send follow request
   Future<void> _sendFollowRequest(String targetEmail) async {
     try {
@@ -1963,26 +1977,67 @@ class _TravelersPageState extends State<TravelersPage> {
       );
     }
 
-    final isRequestSent = _followRequestStates[email] ?? false;
+    return FutureBuilder<QuerySnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId) // Query the current user's data
+          .limit(1) // We expect only one document
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return ListTile(
+            title: Text(name ?? 'Unknown'),
+            subtitle: Text(email),
+            trailing: CircularProgressIndicator(),
+          );
+        }
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: avatar != null
-            ? AssetImage(avatar)
-            : AssetImage('assets/images/sam.jpeg'),
-      ),
-      title: Text(name ?? 'Unknown'),
-      subtitle: Text(email),
-      trailing: ElevatedButton(
-        onPressed: isRequestSent
-            ? null // Disable the button if the request is sent
-            : () {
-          _sendFollowRequest(email);
-        },
-        child: Text(isRequestSent ? 'Request Sent' : 'Follow'),
-      ),
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return ListTile(
+            title: Text(name ?? 'Unknown'),
+            subtitle: Text(email),
+            trailing: Text('Error'),
+          );
+        }
+
+        final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+        final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
+        final List<dynamic> following = userData['following'] ?? [];
+
+        String buttonText;
+        VoidCallback? onPressed;
+
+        if (pendingApprovals.contains(email)) {
+          buttonText = 'Request Sent';
+          onPressed = null; // Disable button
+        } else if (following.contains(email)) {
+          buttonText = 'Following';
+          onPressed = null; // Disable button
+        } else {
+          buttonText = 'Follow';
+          onPressed = () {
+            _sendFollowRequest(email);
+          };
+        }
+
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundImage: avatar != null
+                ? AssetImage(avatar)
+                : AssetImage('assets/images/sam.jpeg'),
+          ),
+          title: Text(name ?? 'Unknown'),
+          subtitle: Text(email),
+          trailing: ElevatedButton(
+            onPressed: onPressed,
+            child: Text(buttonText),
+          ),
+        );
+      },
     );
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -2162,37 +2217,76 @@ class _TravelersPageState extends State<TravelersPage> {
           _buildFilterButtons(),
 
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              itemCount: suggestedUsers.length,
-              itemBuilder: (context, index) {
-                final user = suggestedUsers[index];
-                return FutureBuilder<Map<String, dynamic>>(
-                  future: _fetchUserDetails(user['email_id']),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return CircularProgressIndicator();
-                    } else if (snapshot.hasError) {
-                      return ListTile(
-                        title: Text('Error loading user details'),
-                      );
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return ListTile(
-                        title: Text('User details not found'),
-                      );
-                    } else {
-                      final userDetails = snapshot.data!;
-                      return _buildSuggestionTile(
-                        avatar: userDetails['avatar'] as String?,
-                        name: userDetails['Name'] as String?,
-                        email: user['email_id'] as String?,
-                      );
-                    }
+            child: FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('Users')
+                  .where('email_Id', isEqualTo: emailId) // Fetch the current user's data
+                  .limit(1)
+                  .get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('Error loading user data'));
+                }
+
+                final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+                final List<dynamic> following = userData['following'] ?? [];
+                final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
+
+                // Sort the suggestedUsers list
+                suggestedUsers.sort((a, b) {
+                  final aEmail = a['email_Id'];
+                  final bEmail = b['email_Id'];
+
+                  bool aFollowing = following.contains(aEmail);
+                  bool bFollowing = following.contains(bEmail);
+                  bool aPending = pendingApprovals.contains(aEmail);
+                  bool bPending = pendingApprovals.contains(bEmail);
+
+                  if (aFollowing && !bFollowing) return -1; // a should come first
+                  if (!aFollowing && bFollowing) return 1;  // b should come first
+                  if (aPending && !bPending) return -1;     // a should come first
+                  if (!aPending && bPending) return 1;      // b should come first
+                  return 0; // Keep original order if all conditions are equal
+                });
+
+                return ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: suggestedUsers.length,
+                  itemBuilder: (context, index) {
+                    final user = suggestedUsers[index];
+                    return FutureBuilder<Map<String, dynamic>>(
+                      future: _fetchUserDetails(user['email_Id']),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        } else if (snapshot.hasError) {
+                          return ListTile(
+                            title: Text('Error loading user details'),
+                          );
+                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return ListTile(
+                            title: Text('User details not found'),
+                          );
+                        } else {
+                          final userDetails = snapshot.data!;
+                          return _buildSuggestionTile(
+                            avatar: userDetails['avatar'] as String?,
+                            name: userDetails['Name'] as String?,
+                            email: user['email_Id'] as String?,
+                          );
+                        }
+                      },
+                    );
                   },
                 );
               },
             ),
-          ),
+          )
+,
         ],
       ),
     );
@@ -2288,593 +2382,6 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 }
-
-
-
-// class HistoryCard extends StatelessWidget {
-//   const HistoryCard({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Card(
-//       child: Padding(
-//         padding: const EdgeInsets.all(16),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Row(
-//               children: [
-//                 Icon(Icons.history, color: Colors.blue[900]),
-//                 const SizedBox(width: 8),
-//                 Text(
-//                   'Historical Significance',
-//                   style: Theme.of(context).textTheme.titleLarge,
-//                 ),
-//               ],
-//             ),
-//             const SizedBox(height: 16),
-//             Text(
-//               'AI-generated historical information will appear here...',
-//               style: Theme.of(context).textTheme.bodyLarge,
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
-
-
-// class ChatListPage extends StatefulWidget {
-//   const ChatListPage({super.key});
-//
-//   @override
-//   _ChatListPageState createState() => _ChatListPageState();
-// }
-
-// class _ChatListPageState extends State<ChatListPage> {
-//   // Story data (same as previous implementation)
-//   final List<Map<String, dynamic>> stories = [
-//     {
-//       'type': 'add',
-//       'name': 'Add Story',
-//       'avatar': null,
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Yoga',
-//       'avatar': 'https://randomuser.me/api/portraits/men/50.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Dono',
-//       'avatar': 'https://randomuser.me/api/portraits/men/51.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Doni',
-//       'avatar': 'https://randomuser.me/api/portraits/men/52.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Random',
-//       'avatar': 'https://randomuser.me/api/portraits/men/53.jpg',
-//     },
-//   ];
-//
-//   // Chat data
-//   final List<Map<String, dynamic>> chats = [
-//     {
-//       'name': 'Rehan Wangsaff',
-//       'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
-//       'lastMessage': 'Ur Welcome!',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//     {
-//       'name': 'Peter Parker',
-//       'avatar': 'https://randomuser.me/api/portraits/men/2.jpg',
-//       'lastMessage': 'Can You Come Here Today?',
-//       'time': '00.21',
-//       'unread': true,
-//     },
-//     {
-//       'name': 'Bebeb',
-//       'avatar': 'https://randomuser.me/api/portraits/women/1.jpg',
-//       'lastMessage': 'What You Doing?',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//     {
-//       'name': 'Yoga',
-//       'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
-//       'lastMessage': 'Sokin Sin Ngab',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//   ];
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.transparent, // Make background transparent
-//       body: Stack(
-//         children: [
-//           // Dimmed background (optional)
-//           Positioned.fill(
-//             child: Container(
-//               color: Colors.black.withOpacity(0.7),
-//             ),
-//           ),
-//
-//           // Main Chat UI
-//           Positioned(
-//             bottom: 0,
-//             left: 0,
-//             right: 0,
-//             child: Container(
-//               decoration: BoxDecoration(
-//                 color: Colors.black,
-//                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-//               ),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   // App Bar
-//                   Padding(
-//                     padding: const EdgeInsets.symmetric(
-//                         horizontal: 16.0,
-//                         vertical: 10
-//                     ),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           'Welcome Oji 👋',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontWeight: FontWeight.bold,
-//                             fontSize: 18,
-//                           ),
-//                         ),
-//                         IconButton(
-//                           icon: Icon(Icons.notifications_outlined, color: Colors.white),
-//                           onPressed: () {
-//                             // Notification functionality
-//                           },
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//
-//                   // Story Section
-//                   Padding(
-//                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           'Story',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontWeight: FontWeight.bold,
-//                             fontSize: 18,
-//                           ),
-//                         ),
-//                         Text(
-//                           'See All',
-//                           style: TextStyle(
-//                             color: Colors.white54,
-//                             fontSize: 14,
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//
-//                   // Story Horizontal Scroll
-//                   SingleChildScrollView(
-//                     scrollDirection: Axis.horizontal,
-//                     padding: EdgeInsets.symmetric(horizontal: 16),
-//                     child: Row(
-//                       children: stories.map((story) {
-//                         return Padding(
-//                           padding: const EdgeInsets.only(right: 10),
-//                           child: Column(
-//                             children: [
-//                               Container(
-//                                 width: 60,
-//                                 height: 60,
-//                                 decoration: BoxDecoration(
-//                                   shape: BoxShape.circle,
-//                                   color: story['type'] == 'add'
-//                                       ? Colors.grey[800]
-//                                       : Colors.white,
-//                                   border: Border.all(
-//                                     color: story['type'] == 'add'
-//                                         ? Colors.transparent
-//                                         : Colors.white,
-//                                     width: 2,
-//                                   ),
-//                                 ),
-//                                 child: story['type'] == 'add'
-//                                     ? Icon(Icons.add, color: Colors.white, size: 30)
-//                                     : CircleAvatar(
-//                                   backgroundImage: NetworkImage(story['avatar']),
-//                                 ),
-//                               ),
-//                               SizedBox(height: 5),
-//                               Text(
-//                                 story['name'],
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontSize: 12,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         );
-//                       }).toList(),
-//                     ),
-//                   ),
-//
-//                   // Chat Section
-//                   Container(
-//                     margin: EdgeInsets.only(top: 20),
-//                     height: MediaQuery.of(context).size.height * 0.5, // Half screen height
-//                     decoration: BoxDecoration(
-//                       color: Colors.white,
-//                       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-//                     ),
-//                     child: Column(
-//                       children: [
-//                         Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                             horizontal: 16.0,
-//                             vertical: 16,
-//                           ),
-//                           child: Row(
-//                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                             children: [
-//                               Text(
-//                                 'Recent Chat',
-//                                 style: TextStyle(
-//                                   color: Colors.black,
-//                                   fontWeight: FontWeight.bold,
-//                                   fontSize: 18,
-//                                 ),
-//                               ),
-//                               TextButton.icon(
-//                                 onPressed: () {
-//                                   // Archive chat functionality
-//                                 },
-//                                 icon: Icon(Icons.archive_outlined, color: Colors.black),
-//                                 label: Text(
-//                                   'Archive Chat',
-//                                   style: TextStyle(color: Colors.black),
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                         Expanded(
-//                           child: ListView.builder(
-//                             itemCount: chats.length,
-//                             itemBuilder: (context, index) {
-//                               final chat = chats[index];
-//                               return ListTile(
-//                                 leading: CircleAvatar(
-//                                   backgroundImage: NetworkImage(chat['avatar']),
-//                                   backgroundColor: Colors.grey[200],
-//                                 ),
-//                                 title: Text(
-//                                   chat['name'],
-//                                   style: TextStyle(
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 subtitle: Text(
-//                                   chat['lastMessage'],
-//                                   style: TextStyle(
-//                                     color: Colors.grey,
-//                                   ),
-//                                 ),
-//                                 trailing: Column(
-//                                   mainAxisAlignment: MainAxisAlignment.center,
-//                                   crossAxisAlignment: CrossAxisAlignment.end,
-//                                   children: [
-//                                     Text(
-//                                       chat['time'],
-//                                       style: TextStyle(
-//                                         color: Colors.grey,
-//                                         fontSize: 12,
-//                                       ),
-//                                     ),
-//                                     if (chat['unread'])
-//                                       Container(
-//                                         margin: EdgeInsets.only(top: 4),
-//                                         width: 10,
-//                                         height: 10,
-//                                         decoration: BoxDecoration(
-//                                           color: Colors.blue,
-//                                           shape: BoxShape.circle,
-//                                         ),
-//                                       ),
-//                                   ],
-//                                 ),
-//                                 onTap: () {
-//                                   // Navigate to chat detail
-//                                 },
-//                               );
-//                             },
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           // Close Button
-//           Positioned(
-//             top: 40,
-//             right: 16,
-//             child: IconButton(
-//               icon: Icon(Icons.close, color: Colors.white, size: 30),
-//               onPressed: () {
-//                 Navigator.pop(context);
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-// class ChatDetailPage extends StatefulWidget {
-//   final String name;
-//   final String avatar;
-//
-//   const ChatDetailPage({
-//     super.key,
-//     required this.name,
-//     required this.avatar,
-//   });
-//
-//   @override
-//   _ChatDetailPageState createState() => _ChatDetailPageState();
-// }
-
-// class _ChatDetailPageState extends State<ChatDetailPage> {
-//   final List<Map<String, dynamic>> messages = [
-//     {
-//       'text': 'Hi, I\'m heading to the mall this afternoon',
-//       'isMe': false,
-//       'time': '01.12',
-//     },
-//     {
-//       'text': 'Do you wanna join with me?',
-//       'isMe': false,
-//       'time': '01.12',
-//     },
-//     {
-//       'text': 'its look awesome!',
-//       'isMe': true,
-//       'time': '01.23',
-//     },
-//     {
-//       'text': 'But can I bring my girlfriend? They want to go to the mall',
-//       'isMe': true,
-//       'time': '01.23',
-//     },
-//     {
-//       'text': 'of course, just him',
-//       'isMe': false,
-//       'time': '01.34',
-//     },
-//     {
-//       'text': 'Thanks Rehan',
-//       'isMe': true,
-//       'time': '01.35',
-//     },
-//     {
-//       'text': 'Ur Welcome!',
-//       'isMe': false,
-//       'time': '01.38',
-//     },
-//   ];
-//
-//   final TextEditingController _messageController = TextEditingController();
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       appBar: AppBar(
-//         backgroundColor: Colors.transparent,
-//         elevation: 0,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.black),
-//           onPressed: () => Navigator.pop(context),
-//         ),
-//         title: Row(
-//           children: [
-//             CircleAvatar(
-//               backgroundImage: NetworkImage(widget.avatar),
-//               radius: 20,
-//             ),
-//             SizedBox(width: 10),
-//             Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   widget.name,
-//                   style: TextStyle(
-//                     color: Colors.black,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//                 Text(
-//                   'Online',
-//                   style: TextStyle(
-//                     color: Colors.green,
-//                     fontSize: 12,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//         actions: [
-//           IconButton(
-//             icon: Icon(Icons.more_vert, color: Colors.black),
-//             onPressed: () {
-//               // More options functionality
-//             },
-//           ),
-//         ],
-//       ),
-//       body: Column(
-//         children: [
-//           Padding(
-//             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-//             child: Row(
-//               mainAxisAlignment: MainAxisAlignment.center,
-//               children: [
-//                 Container(
-//                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-//                   decoration: BoxDecoration(
-//                     color: Colors.grey[200],
-//                     borderRadius: BorderRadius.circular(20),
-//                   ),
-//                   child: Text(
-//                     'Today',
-//                     style: TextStyle(
-//                       color: Colors.grey,
-//                       fontSize: 12,
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//           Expanded(
-//             child: ListView.builder(
-//               reverse: true,
-//               padding: EdgeInsets.all(16),
-//               itemCount: messages.length,
-//               itemBuilder: (context, index) {
-//                 final message = messages[messages.length - 1 - index];
-//                 return Align(
-//                   alignment: message['isMe']
-//                       ? Alignment.centerRight
-//                       : Alignment.centerLeft,
-//                   child: Container(
-//                     margin: EdgeInsets.symmetric(vertical: 5),
-//                     padding: EdgeInsets.symmetric(
-//                       horizontal: 16,
-//                       vertical: 10,
-//                     ),
-//                     decoration: BoxDecoration(
-//                       color: message['isMe']
-//                           ? Colors.blue[100]
-//                           : Colors.grey[200],
-//                       borderRadius: BorderRadius.circular(20).copyWith(
-//                         bottomRight: message['isMe']
-//                             ? Radius.zero
-//                             : Radius.circular(20),
-//                         bottomLeft: message['isMe']
-//                             ? Radius.circular(20)
-//                             : Radius.zero,
-//                       ),
-//                     ),
-//                     child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.end,
-//                       children: [
-//                         Text(
-//                           message['text'],
-//                           style: TextStyle(
-//                             color: message['isMe']
-//                                 ? Colors.blue[900]
-//                                 : Colors.black,
-//                           ),
-//                         ),
-//                         SizedBox(height: 4),
-//                         Text(
-//                           message['time'],
-//                           style: TextStyle(
-//                             fontSize: 10,
-//                             color: message['isMe']
-//                                 ? Colors.blue[700]
-//                                 : Colors.grey[600],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 );
-//               },
-//             ),
-//           ),
-//           // Message Input Area
-//           Container(
-//             padding: EdgeInsets.all(16),
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: Colors.grey.withOpacity(0.2),
-//                   spreadRadius: 1,
-//                   blurRadius: 5,
-//                 ),
-//               ],
-//             ),
-//             child: Row(
-//               children: [
-//                 IconButton(
-//                   icon: Icon(Icons.mic, color: Colors.blue),
-//                   onPressed: () {
-//                     // Voice message functionality
-//                   },
-//                 ),
-//                 Expanded(
-//                   child: TextField(
-//                     controller: _messageController,
-//                     decoration: InputDecoration(
-//                       hintText: 'Message...',
-//                       border: InputBorder.none,
-//                       contentPadding: EdgeInsets.symmetric(horizontal: 10),
-//                     ),
-//                   ),
-//                 ),
-//                 IconButton(
-//                   icon: Icon(Icons.send, color: Colors.blue),
-//                   onPressed: () {
-//                     // Send message functionality
-//                     if (_messageController.text.isNotEmpty) {
-//                       setState(() {
-//                         messages.insert(0, {
-//                           'text': _messageController.text,
-//                           'isMe': true,
-//                           'time': DateTime.now().toString().substring(11, 16),
-//                         });
-//                         _messageController.clear();
-//                       });
-//                     }
-//                   },
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
 
 class ProfilePage extends StatefulWidget {
   final String emailId;
