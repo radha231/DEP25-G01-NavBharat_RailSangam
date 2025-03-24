@@ -1170,6 +1170,7 @@ class TravelersPage extends StatefulWidget {
 }
 
 class _TravelersPageState extends State<TravelersPage> {
+  // ... (keep all your existing variables and methods)
   final String emailId;
   final String travelDate;
   final String selectedCoach;
@@ -1211,15 +1212,6 @@ class _TravelersPageState extends State<TravelersPage> {
       };
     }
   }
-  // Bluish gradient colors
-  final Gradient buttonGradient = LinearGradient(
-    colors: [
-      Color(0xFF5D9CEC),
-      Color(0xFF4A89DC),
-    ],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
 
   // Sample data for friends
 
@@ -1257,134 +1249,25 @@ class _TravelersPageState extends State<TravelersPage> {
   final List<String> professions = ['Student', 'Engineer', 'Doctor', 'Artist', 'Other'];
   final List<String> ageGroups = ['18-24', '25-34', '35-44', '45-54', '55+'];
   final List<String> genders = ['Male', 'Female'];
+  // Updated gradient colors to match the reference image
+  final Gradient appBarGradient = LinearGradient(
+    colors: [
+      Color(0xFF4A89DC),
+      Color(0xFF5D9CEC),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Add a method to build the filter row
-  Widget _buildFilterRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-      child: Row(
-        children: [
-          // Profession Dropdown
-          Expanded(
-            child: DropdownButton<String>(
-              value: selectedProfession,
-              hint: Text('Profession'),
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedProfession = newValue;
-                });
-              },
-              items: professions.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-          ),
-          SizedBox(width: 10),
-          // Age Group Dropdown
-          Expanded(
-            child: DropdownButton<String>(
-              value: selectedAgeGroup,
-              hint: Text('Age Group'),
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedAgeGroup = newValue;
-                });
-              },
-              items: ageGroups.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-          ),
-          SizedBox(width: 10),
-          // Gender Dropdown
-          Expanded(
-            child: DropdownButton<String>(
-              value: selectedGender,
-              hint: Text('Gender'),
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedGender = newValue;
-                });
-              },
-              items: genders.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final Gradient buttonGradient = LinearGradient(
+    colors: [
+      Color(0xFF4A89DC),
+      Color(0xFF5D9CEC),
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Add a method to build the search and clear filter buttons
-  Widget _buildFilterButtons() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                _applyFilters();
-              },
-              child: Text('Search'),
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                _clearFilters();
-              },
-              child: Text('Clear Filters'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _applyFilters() {
-    setState(() {
-      // Filter the original list (_allSuggestedUsers) based on selected criteria
-      suggestedUsers = _allSuggestedUsers.where((user) {
-        bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
-        bool matchesAgeGroup = selectedAgeGroup == null || user['Age Group'] == selectedAgeGroup;
-        bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
-
-        // Debug logs
-        print('User: ${user['email_id']}');
-        print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
-        print('AgeGroup: ${user['Age Group']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
-        print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
-        print('---');
-
-        return matchesProfession && matchesAgeGroup && matchesGender;
-      }).toList();
-    });
-
-    // Debug log to check the filtered list
-    print('Filtered Users: ${suggestedUsers.length}');
-  }
-
-  // Add a method to clear filters
-  void _clearFilters() {
-    setState(() {
-      selectedProfession = null;
-      selectedAgeGroup = null;
-      selectedGender = null;
-      suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
-    });
-  }
 
 
   Future<void> _fetchSuggestedUsers() async {
@@ -1565,359 +1448,11 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
-  // Accept follow request
-  Future<void> _acceptFollowRequest(String requesterEmail) async {
-    try {
-      // Get the current user's email
-      final currentUserEmail = emailId;
-
-      // Fetch the current user's document
-      final QuerySnapshot currentUserSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: currentUserEmail)
-          .get();
-
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $currentUserEmail');
-      }
-
-      final currentUserDoc = currentUserSnapshot.docs.first;
-      final timestamp = DateTime.now();
-      final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
-
-      // Fetch the requester's document
-      final QuerySnapshot requesterSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: requesterEmail)
-          .get();
-
-      if (requesterSnapshot.docs.isEmpty) {
-        throw Exception('Requester document not found: $requesterEmail');
-      }
-
-      final requesterDoc = requesterSnapshot.docs.first;
-
-      // Update the current user's document
-      await _firestore.collection('Users').doc(currentUserDoc.id).update({
-        'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
-        'followers': FieldValue.arrayUnion([requesterEmail]), // Add to acceptedRequests
-      });
-
-      // Update the requester's document
-      await _firestore.collection('Users').doc(requesterDoc.id).update({
-        'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
-        'following': FieldValue.arrayUnion([currentUserEmail]), // Add to fol
-        'acceptedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to acceptedRequests// lowing
-        'notifications': FieldValue.arrayUnion([
-          '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
-        ]), // Add notification to the requester's list
-      });
-
-      // Show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Follow request accepted from $requesterEmail')),
-      );
-
-      // Refresh the follow requests list
-      await _removeOverlappingRejectedRequests(requesterEmail);
-      _showFollowRequests();
-    } catch (e) {
-      print('[DEBUG] Error accepting follow request: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error accepting follow request: $e')),
-      );
-    }
-  }
-
-  void _showNotifications() async {
-    try {
-      // Fetch the current user's document
-      final QuerySnapshot currentUserSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: emailId)
-          .get();
-
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $emailId');
-      }
-
-      final currentUserDoc = currentUserSnapshot.docs.first;
-      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
-
-      // Get the notifications, acceptedRequests, and rejectedRequests lists
-      final List<dynamic> notifications = currentUserData['notifications'] ?? [];
-      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
-      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
-
-      // Use a Set to store valid notifications (automatically handles duplicates)
-      final Set<String> validNotificationsSet = {};
-
-      // Filter notifications to only show those related to accepted or rejected requests
-      for (final notification in notifications) {
-        // Extract the email from the notification message
-        final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})').firstMatch(notification);
-        if (emailMatch != null) {
-          final email = emailMatch.group(0);
-
-          // Check if the email is in acceptedRequests or rejectedRequests
-          if (acceptedRequests.contains(email) || rejectedRequests.contains(email)) {
-            validNotificationsSet.add(notification); // Add to the Set (duplicates are ignored)
-          }
-        }
-      }
-
-      // Convert the Set back to a List for display
-      final List<String> validNotifications = validNotificationsSet.toList();
-
-      // Show the notifications in a modal bottom sheet
-      showModalBottomSheet(
-        context: context,
-        builder: (context) {
-          return Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Notifications',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16),
-                if (validNotifications.isEmpty)
-                  Text('No new notifications.'),
-                ...validNotifications.map((notification) {
-                  return ListTile(
-                    title: Text(notification),
-                  );
-                }).toList(),
-              ],
-            ),
-          );
-        },
-      );
-    } catch (e) {
-      print('[DEBUG] Error showing notifications: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error showing notifications: $e')),
-      );
-    }
-  }
 
 
-
-  // Reject follow request
-  Future<void> _rejectFollowRequest(String requesterEmail) async {
-    try {
-      // Get the current user's email
-      final currentUserEmail = emailId;
-
-      // Fetch the current user's document
-      final QuerySnapshot currentUserSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: currentUserEmail)
-          .get();
-
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $currentUserEmail');
-      }
-
-      final currentUserDoc = currentUserSnapshot.docs.first;
-      final timestamp = DateTime.now();
-      final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
-
-      // Fetch the requester's document
-      final QuerySnapshot requesterSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: requesterEmail)
-          .get();
-
-      if (requesterSnapshot.docs.isEmpty) {
-        throw Exception('Requester document not found: $requesterEmail');
-      }
-
-      final requesterDoc = requesterSnapshot.docs.first;
-
-      // Update the current user's document
-      await _firestore.collection('Users').doc(currentUserDoc.id).update({
-        'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
-      });
-
-      // Update the requester's document
-      await _firestore.collection('Users').doc(requesterDoc.id).update({
-        'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
-        'rejectedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to rejectedRequests
-        'notifications': FieldValue.arrayUnion([
-          '$currentUserEmail has rejected your follow request. You can send a new request from suggestions. ($formattedTimestamp)',
-        ]), // Add notification
-      });
-
-      // Show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Follow request rejected from $requesterEmail')),
-      );
-
-      // Refresh the follow requests list
-      await _removeOverlappingRejectedRequests(currentUserEmail);
-      _showFollowRequests();
-    } catch (e) {
-      print('[DEBUG] Error rejecting follow request: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error rejecting follow request: $e')),
-      );
-    }
-  }
-
-
-  Future<List<Map<String, dynamic>>> _fetchFollowRequests() async {
-    try {
-      // Get the current user's email
-      final currentUserEmail = emailId;
-
-      // Fetch the current user's document using a query
-      final QuerySnapshot currentUserSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: currentUserEmail)
-          .get();
-
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $currentUserEmail');
-      }
-
-      // Get the current user's document
-      final currentUserDoc = currentUserSnapshot.docs.first;
-      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
-
-      // Get the followRequests list
-      final List<dynamic> followRequests = currentUserData['followRequests'] ?? [];
-
-      // List to store users with pending follow requests
-      final List<Map<String, dynamic>> usersWithRequests = [];
-
-      // Fetch details of users in the followRequests list
-      for (final requesterEmail in followRequests) {
-        final requesterSnapshot = await _firestore
-            .collection('Users')
-            .where('email_Id', isEqualTo: requesterEmail)
-            .get();
-
-        if (requesterSnapshot.docs.isNotEmpty) {
-          final requesterData = requesterSnapshot.docs.first.data() as Map<String, dynamic>;
-          usersWithRequests.add({
-            'email': requesterEmail,
-            'name': requesterData['Name'],
-            'avatar': requesterData['avatar'],
-          });
-        }
-      }
-
-      print('[DEBUG] Users with follow requests: $usersWithRequests');
-      return usersWithRequests;
-    } catch (e) {
-      print('[DEBUG] Error fetching follow requests: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching follow requests: $e')),
-      );
-      return [];
-    }
-  }
-  void _showFollowRequests() async {
-    try {
-      // Fetch users with pending follow requests
-      final List<Map<String, dynamic>> followRequests = await _fetchFollowRequests();
-
-      // Fetch the current user's document
-      final QuerySnapshot currentUserSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: emailId)
-          .get();
-
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $emailId');
-      }
-
-      final currentUserDoc = currentUserSnapshot.docs.first;
-      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
-
-      // Get the acceptedRequests and rejectedRequests lists
-      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
-      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
-
-      // Remove overlapping entries (acceptedRequests takes precedence)
-      final cleanedRejectedRequests = rejectedRequests.where((email) => !acceptedRequests.contains(email)).toList();
-
-      // Show the follow requests in a modal bottom sheet
-      showModalBottomSheet(
-        context: context,
-        builder: (context) {
-          return Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Follow Requests',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16),
-                if (followRequests.isEmpty && acceptedRequests.isEmpty && cleanedRejectedRequests.isEmpty)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'No pending follow requests.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                ...followRequests.map((user) {
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: user['avatar'] != null
-                          ? AssetImage(user['avatar'])
-                          : AssetImage('assets/images/sam.jpeg'),
-                    ),
-                    title: Text(user['name'] ?? 'Unknown'),
-                    subtitle: Text(user['email']),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.check, color: Colors.green),
-                          onPressed: () => _acceptFollowRequest(user['email']),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.red),
-                          onPressed: () => _rejectFollowRequest(user['email']),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          );
-        },
-      );
-    } catch (e) {
-      print('[DEBUG] Error showing follow requests: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error showing follow requests: $e')),
-      );
-    }
-  }
-  // Hover effect for app bar icons
+  // Updated hoverable icon button with better styling
   Widget _buildHoverableIconButton({
     required IconData icon,
-    required Color color,
     required VoidCallback onPressed,
     bool isToggled = false,
   }) {
@@ -1927,45 +1462,300 @@ class _TravelersPageState extends State<TravelersPage> {
         onTap: onPressed,
         child: AnimatedContainer(
           duration: Duration(milliseconds: 200),
-          padding: EdgeInsets.all(8),
+          padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isToggled ? Colors.grey.shade200 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            color: isToggled ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
           ),
-          child: Icon(icon, color: color),
+          child: Icon(icon, color: Colors.white, size: 24),
         ),
       ),
     );
   }
 
-  Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
-    try {
-      final QuerySnapshot userSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: emailId.trim())
-          .get();
-
-      if (userSnapshot.docs.isNotEmpty) {
-        final userDoc = userSnapshot.docs.first;
-        final userData = userDoc.data() as Map<String, dynamic>;
-
-        // Return the user details
-        return {
-          'Name': userData['Name'],
-          'avatar': userData['avatar'],
-        };
-      } else {
-        return {}; // Return empty map if no user is found
-      }
-    } catch (e) {
-      print('Error fetching user details: $e');
-      return {}; // Return empty map if an error occurs
-    }
+  // Updated modal card style for notifications, follow requests, etc.
+  Widget _buildModalCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white,
+            Color(0xFFE8F0FE),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      padding: EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 60,
+              height: 5,
+              margin: EdgeInsets.only(bottom: 15),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4A89DC),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          ...children,
+        ],
+      ),
+    );
   }
 
+  // Updated avatar widget with better styling
+  Widget _buildUserAvatar({
+    required String? avatar,
+    required String? name,
+    required String email,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(2),
+              child: CircleAvatar(
+                radius: 28,
+                backgroundImage: avatar != null
+                    ? AssetImage(avatar)
+                    : AssetImage('assets/images/sam.jpeg'),
+              ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            name ?? 'Unknown',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 
+  // Updated filter row with better styling
+  Widget _buildFilterRow() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildFilterDropdown(
+              value: selectedProfession,
+              hint: 'Profession',
+              items: professions,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedProfession = newValue;
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: _buildFilterDropdown(
+              value: selectedAgeGroup,
+              hint: 'Age Group',
+              items: ageGroups,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedAgeGroup = newValue;
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: _buildFilterDropdown(
+              value: selectedGender,
+              hint: 'Gender',
+              items: genders,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedGender = newValue;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  // Helper method for suggestion tiles
+  Widget _buildFilterDropdown({
+    required String? value,
+    required String hint,
+    required List<String> items,
+    required Function(String?) onChanged,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: DropdownButton<String>(
+        value: value,
+        hint: Text(hint, style: TextStyle(color: Colors.grey[600])),
+        isExpanded: true,
+        underline: SizedBox(),
+        icon: Icon(Icons.arrow_drop_down, color: Color(0xFF4A89DC)),
+        style: TextStyle(color: Colors.black87, fontSize: 14),
+        onChanged: onChanged,
+        items: items.map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Updated filter buttons with better styling
+  Widget _buildFilterButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 45,
+              decoration: BoxDecoration(
+                gradient: buttonGradient,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFF4A89DC).withOpacity(0.3),
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: _applyFilters,
+                child: Text(
+                  'Search',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 45,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Color(0xFF4A89DC)),
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: _clearFilters,
+                child: Text(
+                  'Clear Filters',
+                  style: TextStyle(
+                    color: Color(0xFF4A89DC),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      // Filter the original list (_allSuggestedUsers) based on selected criteria
+      suggestedUsers = _allSuggestedUsers.where((user) {
+        bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
+        bool matchesAgeGroup = selectedAgeGroup == null || user['Age Group'] == selectedAgeGroup;
+        bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
+
+        // Debug logs
+        print('User: ${user['email_id']}');
+        print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
+        print('AgeGroup: ${user['Age Group']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
+        print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
+        print('---');
+
+        return matchesProfession && matchesAgeGroup && matchesGender;
+      }).toList();
+    });
+
+    // Debug log to check the filtered list
+    print('Filtered Users: ${suggestedUsers.length}');
+  }
+
+  // Add a method to clear filters
+  void _clearFilters() {
+    setState(() {
+      selectedProfession = null;
+      selectedAgeGroup = null;
+      selectedGender = null;
+      suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
+    });
+  }
+  // Updated suggestion tile with better styling
   Widget _buildSuggestionTile({
     required String? avatar,
     required String? name,
@@ -2036,71 +1826,71 @@ class _TravelersPageState extends State<TravelersPage> {
       },
     );
   }
+  Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
+    try {
+      final QuerySnapshot userSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId.trim())
+          .get();
 
+      if (userSnapshot.docs.isNotEmpty) {
+        final userDoc = userSnapshot.docs.first;
+        final userData = userDoc.data() as Map<String, dynamic>;
 
+        // Return the user details
+        return {
+          'Name': userData['Name'],
+          'avatar': userData['avatar'],
+        };
+      } else {
+        return {}; // Return empty map if no user is found
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
+      return {}; // Return empty map if an error occurs
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Color(0xFFF5F7FA),
       appBar: AppBar(
+        toolbarHeight: 80,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: _buildHoverableIconButton(
-          icon: Icons.menu,
-          color: Colors.black,
-          onPressed: () {
-            // Menu functionality
-          },
-        ),
-        title: Text(
-          'Travellers',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: appBarGradient,
           ),
         ),
+        title: Container(
+          alignment: Alignment.centerLeft, // Align title to the left
+          padding: EdgeInsets.only(left: 16), // Add left padding
+          child: Text(
+            'Travellers',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+          ),
+        ),
+        centerTitle: false, // Disable center alignment
         actions: [
-          // Existing bell icon for notifications
           _buildHoverableIconButton(
-            icon: Icons.add_alert_rounded,
-            color: Colors.black,
-            onPressed: () {
-              // Show notifications
-              _showNotifications();
-            },
-          ),
-          // New icon for follow requests
-          _buildHoverableIconButton(
-            icon: Icons.account_box_rounded,
-            color: Colors.black,
-            onPressed: () {
-              // Show follow requests
-              _showFollowRequests();
-            },
-          ),
-          // New icon for pending approvals
-          _buildHoverableIconButton(
-            icon: Icons.pending_actions, // Use an appropriate icon
-            color: Colors.black,
-            onPressed: () {
-              // Show pending approvals
-              _showPendingApprovals();
-            },
+            icon: Icons.notifications,
+            onPressed: _showNotifications,
           ),
           _buildHoverableIconButton(
-            icon: Icons.chat_rounded,
-            color: Colors.black,
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => HomeScreen(),
-                ),
-              );
-            },
+            icon: Icons.group_add,
+            onPressed: _showFollowRequests,
           ),
-          // Suggestions icon has been removed
+          _buildHoverableIconButton(
+            icon: Icons.pending_actions,
+            onPressed: _showPendingApprovals,
+          ),
+          SizedBox(width: 10),
         ],
       ),
       body: Column(
@@ -2108,104 +1898,102 @@ class _TravelersPageState extends State<TravelersPage> {
         children: [
           // Current User and Following Users' Avatars
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Current User's Avatar
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        backgroundImage: AssetImage(currentUser['avatar']),
-                        radius: 30,
-                      ),
-                      SizedBox(height: 5),
-                      Text(
-                        currentUser['name'] ?? 'You', // Display current user's name
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                Text(
+                  'Your Connections',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
                   ),
                 ),
-                // Following Users' Avatars
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: following.map((email) {
-                        return FutureBuilder<Map<String, dynamic>>(
-                          future: _fetchUserDetails(email),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return CircularProgressIndicator();
-                            } else if (snapshot.hasError) {
-                              return Icon(Icons.error);
-                            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                              return Icon(Icons.person);
-                            } else {
-                              final userDetails = snapshot.data!;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 10),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    // Redirect to chat page (HomeScreen)
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => HomeScreen(
-                                          selectedUserEmail: email,
-                                          selectedUserName: userDetails['Name'],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Circular Avatar
-                                      CircleAvatar(
-                                        backgroundImage: userDetails['avatar'] != null
-                                            ? AssetImage(userDetails['avatar'])
-                                            : AssetImage('assets/images/sam.jpeg'),
-                                        radius: 30,
-                                      ),
-                                      SizedBox(height: 5), // Add some spacing
-                                      // User's Name
-                                      Text(
-                                        userDetails['Name'] ?? 'Unknown', // Display the name
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                        );
-                      }).toList(),
+                SizedBox(height: 15),
+                Row(
+                  children: [
+                    // Current User's Avatar
+                    Padding(
+                      padding: const EdgeInsets.only(right: 15),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildUserAvatar(
+                            avatar: currentUser['avatar'],
+                            name: currentUser['name'] ?? 'You',
+                            email: emailId,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    // Following Users' Avatars
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: following.map((email) {
+                            return FutureBuilder<Map<String, dynamic>>(
+                              future: _fetchUserDetails(email),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                    child: CircleAvatar(radius: 30, backgroundColor: Colors.grey[200]),
+                                  );
+                                } else if (snapshot.hasError) {
+                                  return Icon(Icons.error);
+                                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                  return Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                    child: _buildUserAvatar(
+                                      avatar: null,
+                                      name: 'Unknown',
+                                      email: email,
+                                    ),
+                                  );
+                                } else {
+                                  final userDetails = snapshot.data!;
+                                  return Padding(
+                                    padding: EdgeInsets.only(right: 15),
+                                    child: _buildUserAvatar(
+                                      avatar: userDetails['avatar'],
+                                      name: userDetails['Name'],
+                                      email: email,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => HomeScreen(
+                                              selectedUserEmail: email,
+                                              selectedUserName: userDetails['Name'],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
               'Travellers Suggestions',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: Colors.black87,
               ),
             ),
           ),
@@ -2286,15 +2074,14 @@ class _TravelersPageState extends State<TravelersPage> {
               },
             ),
           )
-,
+          ,
         ],
       ),
     );
   }
-
-  void _showPendingApprovals() async {
+  // Updated notification modal
+  void _showNotifications() async {
     try {
-      // Fetch the current user's document
       final QuerySnapshot currentUserSnapshot = await _firestore
           .collection('Users')
           .where('email_Id', isEqualTo: emailId)
@@ -2307,70 +2094,466 @@ class _TravelersPageState extends State<TravelersPage> {
       final currentUserDoc = currentUserSnapshot.docs.first;
       final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
 
-      // Get the pendingApprovals list
-      final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
+      final List<dynamic> notifications = currentUserData['notifications'] ?? [];
+      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
+      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
 
-      // Show the pending approvals in a modal bottom sheet
+      final Set<String> validNotificationsSet = {};
+
+      for (final notification in notifications) {
+        final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})').firstMatch(notification);
+        if (emailMatch != null) {
+          final email = emailMatch.group(0);
+          if (acceptedRequests.contains(email) || rejectedRequests.contains(email)) {
+            validNotificationsSet.add(notification);
+          }
+        }
+      }
+
+      final List<String> validNotifications = validNotificationsSet.toList();
+
       showModalBottomSheet(
         context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (context) {
-          return Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Pending Approvals',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          return _buildModalCard(
+            title: 'Notifications',
+            children: [
+              if (validNotifications.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No new notifications.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                SizedBox(height: 16),
-                if (pendingApprovals.isEmpty)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'No pending approvals.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
+              ...validNotifications.map((notification) {
+                return Container(
+                  margin: EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
                       ),
-                    ),
+                    ],
                   ),
-                // Show pending approvals
-                ...pendingApprovals.map((email) {
-                  return FutureBuilder<Map<String, dynamic>>(
-                    future: _fetchUserDetails(email),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return CircularProgressIndicator();
-                      } else if (snapshot.hasError) {
-                        return ListTile(
-                          title: Text('Error loading user details'),
-                        );
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return ListTile(
-                          title: Text('User details not found'),
-                        );
-                      } else {
-                        final userDetails = snapshot.data!;
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: userDetails['avatar'] != null
-                                ? AssetImage(userDetails['avatar'])
-                                : AssetImage('assets/images/sam.jpeg'),
+                  child: Text(
+                    notification,
+                    style: TextStyle(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      print('[DEBUG] Error showing notifications: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error showing notifications: $e')),
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchFollowRequests() async {
+    try {
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the current user's document using a query
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      // Get the current user's document
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      // Get the followRequests list
+      final List<dynamic> followRequests = currentUserData['followRequests'] ?? [];
+
+      // List to store users with pending follow requests
+      final List<Map<String, dynamic>> usersWithRequests = [];
+
+      // Fetch details of users in the followRequests list
+      for (final requesterEmail in followRequests) {
+        final requesterSnapshot = await _firestore
+            .collection('Users')
+            .where('email_Id', isEqualTo: requesterEmail)
+            .get();
+
+        if (requesterSnapshot.docs.isNotEmpty) {
+          final requesterData = requesterSnapshot.docs.first.data() as Map<String, dynamic>;
+          usersWithRequests.add({
+            'email': requesterEmail,
+            'name': requesterData['Name'],
+            'avatar': requesterData['avatar'],
+          });
+        }
+      }
+
+      print('[DEBUG] Users with follow requests: $usersWithRequests');
+      return usersWithRequests;
+    } catch (e) {
+      print('[DEBUG] Error fetching follow requests: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching follow requests: $e')),
+      );
+      return [];
+    }
+  }
+
+  Future<void> _acceptFollowRequest(String requesterEmail) async {
+    try {
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final timestamp = DateTime.now();
+      final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
+
+      // Fetch the requester's document
+      final QuerySnapshot requesterSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: requesterEmail)
+          .get();
+
+      if (requesterSnapshot.docs.isEmpty) {
+        throw Exception('Requester document not found: $requesterEmail');
+      }
+
+      final requesterDoc = requesterSnapshot.docs.first;
+
+      // Update the current user's document
+      await _firestore.collection('Users').doc(currentUserDoc.id).update({
+        'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
+        'followers': FieldValue.arrayUnion([requesterEmail]), // Add to acceptedRequests
+      });
+
+      // Update the requester's document
+      await _firestore.collection('Users').doc(requesterDoc.id).update({
+        'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
+        'following': FieldValue.arrayUnion([currentUserEmail]), // Add to fol
+        'acceptedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to acceptedRequests// lowing
+        'notifications': FieldValue.arrayUnion([
+          '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
+        ]), // Add notification to the requester's list
+      });
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Follow request accepted from $requesterEmail')),
+      );
+
+      // Refresh the follow requests list
+      await _removeOverlappingRejectedRequests(requesterEmail);
+      _showFollowRequests();
+    } catch (e) {
+      print('[DEBUG] Error accepting follow request: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error accepting follow request: $e')),
+      );
+    }
+  }
+  Future<void> _rejectFollowRequest(String requesterEmail) async {
+    try {
+      // Get the current user's email
+      final currentUserEmail = emailId;
+
+      // Fetch the current user's document
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: currentUserEmail)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $currentUserEmail');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final timestamp = DateTime.now();
+      final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
+
+      // Fetch the requester's document
+      final QuerySnapshot requesterSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: requesterEmail)
+          .get();
+
+      if (requesterSnapshot.docs.isEmpty) {
+        throw Exception('Requester document not found: $requesterEmail');
+      }
+
+      final requesterDoc = requesterSnapshot.docs.first;
+
+      // Update the current user's document
+      await _firestore.collection('Users').doc(currentUserDoc.id).update({
+        'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
+      });
+
+      // Update the requester's document
+      await _firestore.collection('Users').doc(requesterDoc.id).update({
+        'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
+        'rejectedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to rejectedRequests
+        'notifications': FieldValue.arrayUnion([
+          '$currentUserEmail has rejected your follow request. You can send a new request from suggestions. ($formattedTimestamp)',
+        ]), // Add notification
+      });
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Follow request rejected from $requesterEmail')),
+      );
+
+      // Refresh the follow requests list
+      await _removeOverlappingRejectedRequests(currentUserEmail);
+      _showFollowRequests();
+    } catch (e) {
+      print('[DEBUG] Error rejecting follow request: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error rejecting follow request: $e')),
+      );
+    }
+  }
+
+
+  // Updated follow requests modal
+  void _showFollowRequests() async {
+    try {
+      final List<Map<String, dynamic>> followRequests = await _fetchFollowRequests();
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $emailId');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+
+      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
+      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
+      final cleanedRejectedRequests = rejectedRequests.where((email) => !acceptedRequests.contains(email)).toList();
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return _buildModalCard(
+            title: 'Follow Requests',
+            children: [
+              if (followRequests.isEmpty && acceptedRequests.isEmpty && cleanedRejectedRequests.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No pending follow requests.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ...followRequests.map((user) {
+                return Container(
+                  margin: EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundImage: user['avatar'] != null
+                            ? AssetImage(user['avatar'])
+                            : AssetImage('assets/images/sam.jpeg'),
+                        radius: 25,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user['name'] ?? 'Unknown',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              user['email'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.check, color: Colors.green),
+                            onPressed: () => _acceptFollowRequest(user['email']),
                           ),
-                          title: Text(userDetails['Name'] ?? 'Unknown'),
-                          subtitle: Text(email),
-                        );
-                      }
-                    },
-                  );
-                }).toList(),
-              ],
-            ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.red),
+                            onPressed: () => _rejectFollowRequest(user['email']),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      print('[DEBUG] Error showing follow requests: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error showing follow requests: $e')),
+      );
+    }
+  }
+
+  // Updated pending approvals modal
+  void _showPendingApprovals() async {
+    try {
+      final QuerySnapshot currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) {
+        throw Exception('Current user document not found: $emailId');
+      }
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+      final List<dynamic> pendingApprovals = currentUserData['pendingApprovals'] ?? [];
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return _buildModalCard(
+            title: 'Pending Approvals',
+            children: [
+              if (pendingApprovals.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No pending approvals.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ...pendingApprovals.map((email) {
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: _fetchUserDetails(email),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Text('Error loading user details');
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return Text('User details not found');
+                    } else {
+                      final userDetails = snapshot.data!;
+                      return Container(
+                        margin: EdgeInsets.only(bottom: 10),
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 3,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundImage: userDetails['avatar'] != null
+                                  ? AssetImage(userDetails['avatar'])
+                                  : AssetImage('assets/images/sam.jpeg'),
+                              radius: 25,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    userDetails['Name'] ?? 'Unknown',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    email,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                );
+              }).toList(),
+            ],
           );
         },
       );
@@ -2383,6 +2566,592 @@ class _TravelersPageState extends State<TravelersPage> {
   }
 }
 
+
+// class HistoryCard extends StatelessWidget {
+//   const HistoryCard({super.key});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Card(
+//       child: Padding(
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Row(
+//               children: [
+//                 Icon(Icons.history, color: Colors.blue[900]),
+//                 const SizedBox(width: 8),
+//                 Text(
+//                   'Historical Significance',
+//                   style: Theme.of(context).textTheme.titleLarge,
+//                 ),
+//               ],
+//             ),
+//             const SizedBox(height: 16),
+//             Text(
+//               'AI-generated historical information will appear here...',
+//               style: Theme.of(context).textTheme.bodyLarge,
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+
+
+
+// class ChatListPage extends StatefulWidget {
+//   const ChatListPage({super.key});
+//
+//   @override
+//   _ChatListPageState createState() => _ChatListPageState();
+// }
+
+// class _ChatListPageState extends State<ChatListPage> {
+//   // Story data (same as previous implementation)
+//   final List<Map<String, dynamic>> stories = [
+//     {
+//       'type': 'add',
+//       'name': 'Add Story',
+//       'avatar': null,
+//     },
+//     {
+//       'type': 'user',
+//       'name': 'Yoga',
+//       'avatar': 'https://randomuser.me/api/portraits/men/50.jpg',
+//     },
+//     {
+//       'type': 'user',
+//       'name': 'Dono',
+//       'avatar': 'https://randomuser.me/api/portraits/men/51.jpg',
+//     },
+//     {
+//       'type': 'user',
+//       'name': 'Doni',
+//       'avatar': 'https://randomuser.me/api/portraits/men/52.jpg',
+//     },
+//     {
+//       'type': 'user',
+//       'name': 'Random',
+//       'avatar': 'https://randomuser.me/api/portraits/men/53.jpg',
+//     },
+//   ];
+//
+//   // Chat data
+//   final List<Map<String, dynamic>> chats = [
+//     {
+//       'name': 'Rehan Wangsaff',
+//       'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
+//       'lastMessage': 'Ur Welcome!',
+//       'time': '00.21',
+//       'unread': false,
+//     },
+//     {
+//       'name': 'Peter Parker',
+//       'avatar': 'https://randomuser.me/api/portraits/men/2.jpg',
+//       'lastMessage': 'Can You Come Here Today?',
+//       'time': '00.21',
+//       'unread': true,
+//     },
+//     {
+//       'name': 'Bebeb',
+//       'avatar': 'https://randomuser.me/api/portraits/women/1.jpg',
+//       'lastMessage': 'What You Doing?',
+//       'time': '00.21',
+//       'unread': false,
+//     },
+//     {
+//       'name': 'Yoga',
+//       'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
+//       'lastMessage': 'Sokin Sin Ngab',
+//       'time': '00.21',
+//       'unread': false,
+//     },
+//   ];
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.transparent, // Make background transparent
+//       body: Stack(
+//         children: [
+//           // Dimmed background (optional)
+//           Positioned.fill(
+//             child: Container(
+//               color: Colors.black.withOpacity(0.7),
+//             ),
+//           ),
+//
+//           // Main Chat UI
+//           Positioned(
+//             bottom: 0,
+//             left: 0,
+//             right: 0,
+//             child: Container(
+//               decoration: BoxDecoration(
+//                 color: Colors.black,
+//                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+//               ),
+//               child: Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 children: [
+//                   // App Bar
+//                   Padding(
+//                     padding: const EdgeInsets.symmetric(
+//                         horizontal: 16.0,
+//                         vertical: 10
+//                     ),
+//                     child: Row(
+//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                       children: [
+//                         Text(
+//                           'Welcome Oji 👋',
+//                           style: TextStyle(
+//                             color: Colors.white,
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 18,
+//                           ),
+//                         ),
+//                         IconButton(
+//                           icon: Icon(Icons.notifications_outlined, color: Colors.white),
+//                           onPressed: () {
+//                             // Notification functionality
+//                           },
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//
+//                   // Story Section
+//                   Padding(
+//                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+//                     child: Row(
+//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                       children: [
+//                         Text(
+//                           'Story',
+//                           style: TextStyle(
+//                             color: Colors.white,
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 18,
+//                           ),
+//                         ),
+//                         Text(
+//                           'See All',
+//                           style: TextStyle(
+//                             color: Colors.white54,
+//                             fontSize: 14,
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//
+//                   // Story Horizontal Scroll
+//                   SingleChildScrollView(
+//                     scrollDirection: Axis.horizontal,
+//                     padding: EdgeInsets.symmetric(horizontal: 16),
+//                     child: Row(
+//                       children: stories.map((story) {
+//                         return Padding(
+//                           padding: const EdgeInsets.only(right: 10),
+//                           child: Column(
+//                             children: [
+//                               Container(
+//                                 width: 60,
+//                                 height: 60,
+//                                 decoration: BoxDecoration(
+//                                   shape: BoxShape.circle,
+//                                   color: story['type'] == 'add'
+//                                       ? Colors.grey[800]
+//                                       : Colors.white,
+//                                   border: Border.all(
+//                                     color: story['type'] == 'add'
+//                                         ? Colors.transparent
+//                                         : Colors.white,
+//                                     width: 2,
+//                                   ),
+//                                 ),
+//                                 child: story['type'] == 'add'
+//                                     ? Icon(Icons.add, color: Colors.white, size: 30)
+//                                     : CircleAvatar(
+//                                   backgroundImage: NetworkImage(story['avatar']),
+//                                 ),
+//                               ),
+//                               SizedBox(height: 5),
+//                               Text(
+//                                 story['name'],
+//                                 style: TextStyle(
+//                                   color: Colors.white,
+//                                   fontSize: 12,
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         );
+//                       }).toList(),
+//                     ),
+//                   ),
+//
+//                   // Chat Section
+//                   Container(
+//                     margin: EdgeInsets.only(top: 20),
+//                     height: MediaQuery.of(context).size.height * 0.5, // Half screen height
+//                     decoration: BoxDecoration(
+//                       color: Colors.white,
+//                       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+//                     ),
+//                     child: Column(
+//                       children: [
+//                         Padding(
+//                           padding: const EdgeInsets.symmetric(
+//                             horizontal: 16.0,
+//                             vertical: 16,
+//                           ),
+//                           child: Row(
+//                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                             children: [
+//                               Text(
+//                                 'Recent Chat',
+//                                 style: TextStyle(
+//                                   color: Colors.black,
+//                                   fontWeight: FontWeight.bold,
+//                                   fontSize: 18,
+//                                 ),
+//                               ),
+//                               TextButton.icon(
+//                                 onPressed: () {
+//                                   // Archive chat functionality
+//                                 },
+//                                 icon: Icon(Icons.archive_outlined, color: Colors.black),
+//                                 label: Text(
+//                                   'Archive Chat',
+//                                   style: TextStyle(color: Colors.black),
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         ),
+//                         Expanded(
+//                           child: ListView.builder(
+//                             itemCount: chats.length,
+//                             itemBuilder: (context, index) {
+//                               final chat = chats[index];
+//                               return ListTile(
+//                                 leading: CircleAvatar(
+//                                   backgroundImage: NetworkImage(chat['avatar']),
+//                                   backgroundColor: Colors.grey[200],
+//                                 ),
+//                                 title: Text(
+//                                   chat['name'],
+//                                   style: TextStyle(
+//                                     fontWeight: FontWeight.bold,
+//                                   ),
+//                                 ),
+//                                 subtitle: Text(
+//                                   chat['lastMessage'],
+//                                   style: TextStyle(
+//                                     color: Colors.grey,
+//                                   ),
+//                                 ),
+//                                 trailing: Column(
+//                                   mainAxisAlignment: MainAxisAlignment.center,
+//                                   crossAxisAlignment: CrossAxisAlignment.end,
+//                                   children: [
+//                                     Text(
+//                                       chat['time'],
+//                                       style: TextStyle(
+//                                         color: Colors.grey,
+//                                         fontSize: 12,
+//                                       ),
+//                                     ),
+//                                     if (chat['unread'])
+//                                       Container(
+//                                         margin: EdgeInsets.only(top: 4),
+//                                         width: 10,
+//                                         height: 10,
+//                                         decoration: BoxDecoration(
+//                                           color: Colors.blue,
+//                                           shape: BoxShape.circle,
+//                                         ),
+//                                       ),
+//                                   ],
+//                                 ),
+//                                 onTap: () {
+//                                   // Navigate to chat detail
+//                                 },
+//                               );
+//                             },
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//
+//           // Close Button
+//           Positioned(
+//             top: 40,
+//             right: 16,
+//             child: IconButton(
+//               icon: Icon(Icons.close, color: Colors.white, size: 30),
+//               onPressed: () {
+//                 Navigator.pop(context);
+//               },
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+// class ChatDetailPage extends StatefulWidget {
+//   final String name;
+//   final String avatar;
+//
+//   const ChatDetailPage({
+//     super.key,
+//     required this.name,
+//     required this.avatar,
+//   });
+//
+//   @override
+//   _ChatDetailPageState createState() => _ChatDetailPageState();
+// }
+
+// class _ChatDetailPageState extends State<ChatDetailPage> {
+//   final List<Map<String, dynamic>> messages = [
+//     {
+//       'text': 'Hi, I\'m heading to the mall this afternoon',
+//       'isMe': false,
+//       'time': '01.12',
+//     },
+//     {
+//       'text': 'Do you wanna join with me?',
+//       'isMe': false,
+//       'time': '01.12',
+//     },
+//     {
+//       'text': 'its look awesome!',
+//       'isMe': true,
+//       'time': '01.23',
+//     },
+//     {
+//       'text': 'But can I bring my girlfriend? They want to go to the mall',
+//       'isMe': true,
+//       'time': '01.23',
+//     },
+//     {
+//       'text': 'of course, just him',
+//       'isMe': false,
+//       'time': '01.34',
+//     },
+//     {
+//       'text': 'Thanks Rehan',
+//       'isMe': true,
+//       'time': '01.35',
+//     },
+//     {
+//       'text': 'Ur Welcome!',
+//       'isMe': false,
+//       'time': '01.38',
+//     },
+//   ];
+//
+//   final TextEditingController _messageController = TextEditingController();
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.white,
+//       appBar: AppBar(
+//         backgroundColor: Colors.transparent,
+//         elevation: 0,
+//         leading: IconButton(
+//           icon: Icon(Icons.arrow_back, color: Colors.black),
+//           onPressed: () => Navigator.pop(context),
+//         ),
+//         title: Row(
+//           children: [
+//             CircleAvatar(
+//               backgroundImage: NetworkImage(widget.avatar),
+//               radius: 20,
+//             ),
+//             SizedBox(width: 10),
+//             Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(
+//                   widget.name,
+//                   style: TextStyle(
+//                     color: Colors.black,
+//                     fontWeight: FontWeight.bold,
+//                   ),
+//                 ),
+//                 Text(
+//                   'Online',
+//                   style: TextStyle(
+//                     color: Colors.green,
+//                     fontSize: 12,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ],
+//         ),
+//         actions: [
+//           IconButton(
+//             icon: Icon(Icons.more_vert, color: Colors.black),
+//             onPressed: () {
+//               // More options functionality
+//             },
+//           ),
+//         ],
+//       ),
+//       body: Column(
+//         children: [
+//           Padding(
+//             padding: const EdgeInsets.symmetric(horizontal: 16.0),
+//             child: Row(
+//               mainAxisAlignment: MainAxisAlignment.center,
+//               children: [
+//                 Container(
+//                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+//                   decoration: BoxDecoration(
+//                     color: Colors.grey[200],
+//                     borderRadius: BorderRadius.circular(20),
+//                   ),
+//                   child: Text(
+//                     'Today',
+//                     style: TextStyle(
+//                       color: Colors.grey,
+//                       fontSize: 12,
+//                     ),
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           Expanded(
+//             child: ListView.builder(
+//               reverse: true,
+//               padding: EdgeInsets.all(16),
+//               itemCount: messages.length,
+//               itemBuilder: (context, index) {
+//                 final message = messages[messages.length - 1 - index];
+//                 return Align(
+//                   alignment: message['isMe']
+//                       ? Alignment.centerRight
+//                       : Alignment.centerLeft,
+//                   child: Container(
+//                     margin: EdgeInsets.symmetric(vertical: 5),
+//                     padding: EdgeInsets.symmetric(
+//                       horizontal: 16,
+//                       vertical: 10,
+//                     ),
+//                     decoration: BoxDecoration(
+//                       color: message['isMe']
+//                           ? Colors.blue[100]
+//                           : Colors.grey[200],
+//                       borderRadius: BorderRadius.circular(20).copyWith(
+//                         bottomRight: message['isMe']
+//                             ? Radius.zero
+//                             : Radius.circular(20),
+//                         bottomLeft: message['isMe']
+//                             ? Radius.circular(20)
+//                             : Radius.zero,
+//                       ),
+//                     ),
+//                     child: Column(
+//                       crossAxisAlignment: CrossAxisAlignment.end,
+//                       children: [
+//                         Text(
+//                           message['text'],
+//                           style: TextStyle(
+//                             color: message['isMe']
+//                                 ? Colors.blue[900]
+//                                 : Colors.black,
+//                           ),
+//                         ),
+//                         SizedBox(height: 4),
+//                         Text(
+//                           message['time'],
+//                           style: TextStyle(
+//                             fontSize: 10,
+//                             color: message['isMe']
+//                                 ? Colors.blue[700]
+//                                 : Colors.grey[600],
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//                 );
+//               },
+//             ),
+//           ),
+//           // Message Input Area
+//           Container(
+//             padding: EdgeInsets.all(16),
+//             decoration: BoxDecoration(
+//               color: Colors.white,
+//               boxShadow: [
+//                 BoxShadow(
+//                   color: Colors.grey.withOpacity(0.2),
+//                   spreadRadius: 1,
+//                   blurRadius: 5,
+//                 ),
+//               ],
+//             ),
+//             child: Row(
+//               children: [
+//                 IconButton(
+//                   icon: Icon(Icons.mic, color: Colors.blue),
+//                   onPressed: () {
+//                     // Voice message functionality
+//                   },
+//                 ),
+//                 Expanded(
+//                   child: TextField(
+//                     controller: _messageController,
+//                     decoration: InputDecoration(
+//                       hintText: 'Message...',
+//                       border: InputBorder.none,
+//                       contentPadding: EdgeInsets.symmetric(horizontal: 10),
+//                     ),
+//                   ),
+//                 ),
+//                 IconButton(
+//                   icon: Icon(Icons.send, color: Colors.blue),
+//                   onPressed: () {
+//                     // Send message functionality
+//                     if (_messageController.text.isNotEmpty) {
+//                       setState(() {
+//                         messages.insert(0, {
+//                           'text': _messageController.text,
+//                           'isMe': true,
+//                           'time': DateTime.now().toString().substring(11, 16),
+//                         });
+//                         _messageController.clear();
+//                       });
+//                     }
+//                   },
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
 class ProfilePage extends StatefulWidget {
   final String emailId;
   const ProfilePage({Key? key, required this.emailId}) : super(key: key);
@@ -2390,6 +3159,7 @@ class ProfilePage extends StatefulWidget {
   @override
   _ProfilePageState createState() => _ProfilePageState(emailId: emailId);
 }
+
 
 class _ProfilePageState extends State<ProfilePage> {
   final String emailId;
