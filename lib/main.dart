@@ -169,12 +169,134 @@ class _LoginPageState extends State<LoginPage> {
   bool showCoachDropdown = false;
   String? selectedCoach;
   String? travelDate;
+
   @override
   void initState() {
     super.initState();
+    // Check for existing journey immediately when the page loads
+    checkExistingJourney();
   }
+
   String trainNumberInput = "";
   String errorMessage = "";
+
+  // New function to check for existing journeys
+  Future<void> checkExistingJourney() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Get user email from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('user_email');
+
+      if (userEmail != null) {
+        // Get current date in the format "dd-MM-yyyy"
+        final now = DateTime.now();
+        final today = "${now.day}-${now.month}-${now.year}";
+
+        // Query Firestore for journeys with this email and valid travel date
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('Journey')
+            .where('email_id', isEqualTo: userEmail)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          // Check if any journey has a travel date >= today
+          for (var doc in querySnapshot.docs) {
+            final journeyData = doc.data();
+            final journeyDate = journeyData['travel_date'] as String?;
+
+            if (journeyDate != null) {
+              // Parse dates for comparison
+              final List<int> journeyDateParts = journeyDate.split('-')
+                  .map((part) => int.parse(part))
+                  .toList();
+              final journeyDateTime = DateTime(
+                  journeyDateParts[2], journeyDateParts[1], journeyDateParts[0]);
+
+              if (journeyDateTime.isAfter(now) ||
+                  (journeyDateTime.day == now.day &&
+                      journeyDateTime.month == now.month &&
+                      journeyDateTime.year == now.year)) {
+
+                // Get train details for navigation
+                final trainNo = journeyData['train_no'] as String;
+                final coachNumber = journeyData['coach_number'] as String;
+
+                // Fetch train details
+                final trainSnapshot = await FirebaseFirestore.instance
+                    .collection('Trains')
+                    .where('Train no', isEqualTo: trainNo)
+                    .limit(1)
+                    .get();
+
+                if (trainSnapshot.docs.isNotEmpty) {
+                  final trainData = trainSnapshot.docs.first.data();
+
+                  // Create Train object for navigation
+                  final List<String> stations = List<String>.from(trainData['Stops'] ?? []);
+                  final List<String> coordinates = [];
+                  for (String station in stations) {
+                    QuerySnapshot query = await FirebaseFirestore.instance
+                        .collection('Coordinates')
+                        .where('Station', isEqualTo: station)
+                        .get();
+
+                    String? coordinate;
+                    if (query.docs.isNotEmpty) {
+                      coordinate = query.docs.first['Coordinates'];
+                    }
+                    coordinates.add(coordinate ?? "Unknown");
+                  }
+
+                  final List<String> coaches = List<String>.from(trainData['Coaches'] ?? []);
+
+                  final train = Train(
+                    name: trainData['Train Name'] ?? 'Unnamed Train',
+                    train_no: trainData['Train no'] ?? 'Unknown Train Number',
+                    stations: stations,
+                    coordinates: coordinates,
+                    coaches: coaches,
+                  );
+
+                  // Navigate to HomePage
+                  if (mounted) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HomePage(
+                          selectedTrain: train,
+                          emailId: userEmail,
+                          travelDate: journeyDate,
+                          selectedCoach: coachNumber,
+                          trainNo: trainNo,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Exit early after navigation
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // If we get here, no valid journey was found
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error checking existing journey: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -396,15 +518,26 @@ class _LoginPageState extends State<LoginPage> {
                                       'coach_number': selectedCoach,
                                       'timestamp': FieldValue.serverTimestamp(), // To track entry time
                                     }).then((_) {
+                                      // Save email to shared preferences
+                                      SharedPreferences.getInstance().then((prefs) {
+                                        prefs.setString('user_email', emailId);
+                                      });
+
                                       // Navigate to Home Page after successful Firestore entry
-                                      print('Navigating to LoginPage');
+                                      print('Navigating to HomePage');
                                       Navigator.pushReplacement(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (context) => HomePage(selectedTrain: selectedTrain!, emailId: emailId, travelDate: travelDate!, selectedCoach: selectedCoach!, trainNo: trainNumberInput,),
+                                          builder: (context) => HomePage(
+                                            selectedTrain: selectedTrain!,
+                                            emailId: emailId,
+                                            travelDate: travelDate!,
+                                            selectedCoach: selectedCoach!,
+                                            trainNo: trainNumberInput,
+                                          ),
                                         ),
                                       );
-                                      print('Successfully Navigated to LoginPage');
+                                      print('Successfully Navigated to HomePage');
                                     }).catchError((error) {
                                       // Handle errors if the Firestore entry fails
                                       print("Failed to add journey: $error");
