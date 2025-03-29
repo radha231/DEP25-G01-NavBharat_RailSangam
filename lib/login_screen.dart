@@ -19,6 +19,29 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String _errorMessage = '';
 
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingUser();
+  }
+
+  Future<void> _checkExistingUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedEmail = prefs.getString('user_email');
+
+    if (storedEmail != null) {
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: storedEmail).get();
+
+      if (snapshot.docs.isNotEmpty) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginPage(emailId: storedEmail)),
+        );
+      }
+    }
+  }
+
   void _showRegistrationForm() {
     // Controllers for form fields
     final TextEditingController nameController = TextEditingController();
