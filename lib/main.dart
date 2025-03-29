@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import 'firebase_options.dart';
 import 'dart:math';
 import 'package:dropdown_button2/dropdown_button2.dart';
@@ -468,8 +469,19 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
   //   print('Documents updated successfully!');
   // }
 
-
+  // Future<void> requestNotificationPermission() async {
+  //   var status = await Permission.notification.status;
+  //   if (!status.isGranted) {
+  //     status = await Permission.notification.request();
+  //   }
+  // }
+  Future<void> requestPermissions() async {
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
+  }
   Future<void> initNotifications() async {
+    requestPermissions();
     const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings();
     const InitializationSettings initializationSettings = InitializationSettings(
@@ -1536,12 +1548,12 @@ class _TravelersPageState extends State<TravelersPage> {
         children: [
           Container(
             padding: EdgeInsets.all(2),
-              child: CircleAvatar(
-                radius: 28,
-                backgroundImage: avatar != null
-                    ? AssetImage(avatar)
-                    : AssetImage('assets/images/sam.jpeg'),
-              ),
+            child: CircleAvatar(
+              radius: 28,
+              backgroundImage: avatar != null
+                  ? AssetImage(avatar)
+                  : AssetImage('assets/images/sam.jpeg'),
+            ),
           ),
           SizedBox(height: 5),
           Text(
