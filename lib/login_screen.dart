@@ -461,15 +461,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 return null;
                               },
                             ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  _showSnackBar('Forgot Password Clicked');
-                                },
-                                child: const Text('Forgot Password?'),
-                              ),
-                            ),
+                            // Align(
+                            //   alignment: Alignment.centerRight,
+                            //   child: TextButton(
+                            //     onPressed: () {
+                            //       _showSnackBar('Forgot Password Clicked');
+                            //     },
+                            //     child: const Text('Forgot Password?'),
+                            //   ),
+                            // ),
                             const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
