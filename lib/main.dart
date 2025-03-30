@@ -169,6 +169,7 @@ class _LoginPageState extends State<LoginPage> {
   bool showCoachDropdown = false;
   String? selectedCoach;
   String? travelDate;
+  DateTime? expiryDate;
 
   @override
   void initState() {
@@ -495,6 +496,19 @@ class _LoginPageState extends State<LoginPage> {
                                   if (pickedDate != null) {
                                     setState(() {
                                       travelDate = "${pickedDate.day}-${pickedDate.month}-${pickedDate.year}";
+                                      DateTime travelDateTime = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
+                                      // Calculate expiryDate (end of the next day)
+                                      expiryDate = travelDateTime.add(Duration(days: 1));
+                                      if (expiryDate != null) {
+                                        DateTime localExpiryDate = expiryDate!;
+                                        expiryDate = DateTime(
+                                            localExpiryDate.year,
+                                            localExpiryDate.month,
+                                            localExpiryDate.day,
+                                            23, 59, 59, 999
+                                        );
+                                      }
+
                                     });
                                   }
                                 },
@@ -508,15 +522,24 @@ class _LoginPageState extends State<LoginPage> {
                                       ? null
                                       : () async {
                                     // Get Firestore instance
-                                    FirebaseFirestore firestore = FirebaseFirestore.instance;
+                                    FirebaseFirestore.instance
+                                        .collection('Journey')
+                                        .where('expiryDate', isLessThan: Timestamp.now())
+                                        .get()
+                                        .then((snapshot) {
+                                      for (var doc in snapshot.docs) {
+                                        doc.reference.delete(); // Manually delete expired docs
+                                      }
+                                    });
 
-                                    // Add data to Journey collection
+                                    FirebaseFirestore firestore = FirebaseFirestore.instance;
                                     await firestore.collection('Journey').add({
-                                      'train_no': trainNumberInput, // Ensure this holds the train number
+                                      'train_no': trainNumberInput,
                                       'email_id': emailId,
                                       'travel_date': travelDate,
                                       'coach_number': selectedCoach,
-                                      'timestamp': FieldValue.serverTimestamp(), // To track entry time
+                                      'timestamp': FieldValue.serverTimestamp(),
+                                      'expiryDate': Timestamp.fromDate(expiryDate!), // Firestore timestamp
                                     }).then((_) {
                                       // Save email to shared preferences
                                       SharedPreferences.getInstance().then((prefs) {
