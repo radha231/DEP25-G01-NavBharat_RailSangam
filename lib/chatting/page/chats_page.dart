@@ -194,58 +194,69 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-        elevation: 0,
-        flexibleSpace: Container(
-        decoration: BoxDecoration(
-        gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Colors.blue.shade700, Colors.blue.shade500],
-    ),
-    ),
-    ),
-    title: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    Text(
-    'Messages',
-    style: TextStyle(
-    fontWeight: FontWeight.bold,
-    fontSize: 22,
-    letterSpacing: 0.5,
-    ),
-    ),
-    Text(
-    'Stay connected with travelers',
-    style: TextStyle(
-    fontSize: 13,
-    fontWeight: FontWeight.w400,
-    color: Colors.white.withOpacity(0.9),
-    ),
-    ),
-    ],
-    ),
+          elevation: 0,
+          toolbarHeight: 90, // Increased from default
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.blue.shade700, Colors.blue.shade500],
+              ),
+            ),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Messages',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24, // Increased from 22
+                  letterSpacing: 0.5,
+                  color: Colors.white.withOpacity(0.9),
+                  height: 1.2, // Added line height
+                ),
+              ),
+              SizedBox(height: 4), // Added spacing
+              Text(
+                'Stay connected with travellers',
+                style: TextStyle(
+                  fontSize: 15, // Increased from 13
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withOpacity(0.9),
+                  height: 1.3, // Added line height
+                ),
+              ),
+            ],
+          ),
     actions: [
-    IconButton(
-    icon: Container(
-    padding: EdgeInsets.all(8),
-    decoration: BoxDecoration(
-    color: Colors.white.withOpacity(0.2),
-    shape: BoxShape.circle,
-    ),
-    child: Icon(Icons.edit, size: 20, color: Colors.white),
-    ),
-    onPressed: _showMessageDialog,
-    ),
-    SizedBox(width: 10),
+        Padding(
+        padding: EdgeInsets.only(right: 16), // Added padding
+      child: IconButton(
+        icon: Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.edit, size: 22, color: Colors.white), // Increased from 20
+        ),
+        onPressed: _showMessageDialog,
+      ),
+        )
     ],
     ),
-    floatingActionButton: FloatingActionButton(
-    onPressed: _showMessageDialog,
-    backgroundColor: Colors.blue.shade600,
-    child: Icon(Icons.message, color: Colors.white),
-    elevation: 4,
-    ),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: 50), // Added padding to lift it up
+        child: FloatingActionButton(
+          onPressed: _showMessageDialog,
+          backgroundColor: Colors.blue.shade600,
+          child: Icon(Icons.message, color: Colors.white, size: 28), // Increased icon size
+          elevation: 4,
+        ),
+      ),
     backgroundColor: Colors.grey.shade50,
       body: _currentUserEmail == null
           ? Center(child: CircularProgressIndicator(color: Colors.blue))
