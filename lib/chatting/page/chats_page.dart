@@ -99,40 +99,118 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showMessageDialog() async {
-    final users = await firestore.collection('Users').get();
-    final userOptions = users.docs.map((doc) {
+    // First get current user's journey details
+    final currentUserJourney = await firestore.collection('Journey')
+        .where('email_id', isEqualTo: _currentUserEmail)
+        .limit(1)
+        .get();
+
+    if (currentUserJourney.docs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No journey details found for current user')),
+      );
+      return;
+    }
+
+    final journeyData = currentUserJourney.docs.first.data();
+    final trainNo = journeyData['train_no'];
+    final coachNo = journeyData['coach_number'];
+    final travelDate = journeyData['travel_date'];
+
+    // Get all users in same journey
+    final sameJourneyUsers = await firestore.collection('Journey')
+        .where('train_no', isEqualTo: trainNo)
+        .where('coach_number', isEqualTo: coachNo)
+        .where('travel_date', isEqualTo: travelDate)
+        .get();
+
+    if (sameJourneyUsers.docs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No fellow travelers found')),
+      );
+      return;
+    }
+
+    // Extract unique email IDs (excluding current user)
+    final userEmails = sameJourneyUsers.docs
+        .map((doc) => doc['email_id'] as String)
+        .where((email) => email != _currentUserEmail)
+        .toSet()
+        .toList();
+
+    if (userEmails.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No other travelers in your coach')),
+      );
+      return;
+    }
+
+    // Get user details for these emails
+    final usersSnapshot = await firestore.collection('Users')
+        .where('email_Id', whereIn: userEmails)
+        .get();
+
+    final userOptions = usersSnapshot.docs.map((doc) {
       return {
         'email': doc.get('email_Id'),
         'name': doc.get('Name'),
+        'avatar': doc.get('avatarUrl'),
       };
     }).toList();
 
     final selectedUser = await showDialog(
       context: context,
-      builder: (context) {
-        return SimpleDialog(
-          title: Text('Select User', style: TextStyle(color: Colors.blue.shade800, fontWeight: FontWeight.bold)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          children: userOptions.map((user) => SimpleDialogOption(
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Text(user['name'][0], style: TextStyle(color: Colors.blue.shade800)),
-                  ),
-                  SizedBox(width: 12),
-                  Text(user['name'], style: TextStyle(fontSize: 16)),
-                ],
+      builder: (context) => SimpleDialog(
+        title: Text('Select Travel Companion',
+            style: TextStyle(
+                color: Colors.blue.shade800,
+                fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15)),
+        children: [
+          if (userOptions.isEmpty)
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No travelers found in your coach'),
+            )
+          else
+            ...userOptions.map((user) => SimpleDialogOption(
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.blue.shade100,
+                      backgroundImage: user['avatar'] != null
+                          ? NetworkImage(user['avatar'])
+                          : null,
+                      child: user['avatar'] == null
+                          ? Text(user['name'][0].toUpperCase(),
+                          style: TextStyle(color: Colors.blue.shade800))
+                          : null,
+                    ),
+                    SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user['name'],
+                            style: TextStyle(fontSize: 16)),
+                        Text(user['email'],
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            onPressed: () {
-              Navigator.of(context).pop(user);
-            },
-          )).toList(),
-        );
-      },
+              onPressed: () {
+                Navigator.of(context).pop(user);
+              },
+            )),
+        ],
+      ),
     );
 
     if (selectedUser != null) {
@@ -141,9 +219,12 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            title: Text('Send Message to ${selectedUser['name']}',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15)),
+            title: Text('Message ${selectedUser['name']}',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade800)),
             content: TextField(
               controller: messageController,
               decoration: InputDecoration(
@@ -161,17 +242,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel',
+                    style: TextStyle(color: Colors.grey)),
               ),
               ElevatedButton(
                 onPressed: () async {
                   final message = messageController.text;
                   if (message.isNotEmpty) {
                     await _sendMessage(selectedUser['email'], message);
-                    Navigator.of(context).pop();
+                    Navigator.pop(context);
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -189,7 +269,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
