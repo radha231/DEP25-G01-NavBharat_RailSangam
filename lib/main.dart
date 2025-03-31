@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,7 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 
@@ -2018,7 +2019,7 @@ class _TravelersPageState extends State<TravelersPage> {
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance
           .collection('Users')
-          .where('email_Id', isEqualTo: emailId)
+          .where('email_Id', isEqualTo: email)
           .limit(1)
           .get(),
       builder: (context, snapshot) {
@@ -2057,8 +2058,11 @@ class _TravelersPageState extends State<TravelersPage> {
         }
 
         final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+
         final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
         final List<dynamic> following = userData['following'] ?? [];
+        final List<dynamic> interests = userData['Interests'] ?? []; // Interests List
+        final String profession = userData['Profession'] ?? 'Unknown'; // Profession String
 
         String buttonText;
         VoidCallback? onPressed;
@@ -2097,7 +2101,22 @@ class _TravelersPageState extends State<TravelersPage> {
             ),
           ),
           title: Text(name ?? 'Unknown'),
-          subtitle: Text(email),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(email),
+              Text(
+                profession,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Profession with a bigger font
+              ),
+              if (interests.isNotEmpty)
+                Text(
+                  "Interests: ${interests.join(', ')}",
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87), // Bigger and darker text
+                ),
+            ],
+          ),
+
           trailing: ElevatedButton(
             onPressed: onPressed,
             style: ElevatedButton.styleFrom(
@@ -2112,6 +2131,7 @@ class _TravelersPageState extends State<TravelersPage> {
       },
     );
   }
+
 
 
   Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
@@ -2308,12 +2328,12 @@ class _TravelersPageState extends State<TravelersPage> {
                                   return Icon(Icons.error);
                                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                                   return Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 8),
-                                    child: _buildUserAvatar(
-                                      avatarUrl: currentUser['avatarUrl'],
-                                      name: currentUser['name'] ?? 'You',
-                                      email: emailId,
-                                    )
+                                      padding: EdgeInsets.symmetric(horizontal: 8),
+                                      child: _buildUserAvatar(
+                                        avatarUrl: currentUser['avatarUrl'],
+                                        name: currentUser['name'] ?? 'You',
+                                        email: emailId,
+                                      )
                                   );
                                 } else {
                                   final userDetails = snapshot.data!;
@@ -2738,11 +2758,11 @@ class _TravelersPageState extends State<TravelersPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
-                    BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                    )
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      )
                     ],
                   ),
                   child: Row(
@@ -2870,11 +2890,11 @@ class _TravelersPageState extends State<TravelersPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
-                          BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                          )
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 3,
+                              offset: Offset(0, 1),
+                            )
                           ],
                         ),
                         child: Row(
@@ -3711,7 +3731,7 @@ class _ProfilePageState extends State<ProfilePage> {
       "https://api.dicebear.com/9.x/micah/svg?seed=radha",
       "https://api.dicebear.com/9.x/micah/svg?seed=arav",
       "https://api.dicebear.com/9.x/micah/svg?seed=rrrrrrrr",
-          "https://api.dicebear.com/9.x/micah/svg?seed=Jameson",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Jameson",
       "https://api.dicebear.com/9.x/micah/svg?seed=happya",
       "https://api.dicebear.com/9.x/micah/svg?seed=George",
       "https://api.dicebear.com/9.x/micah/svg?seed=liamaaaaaaaaaaaaaaaaaaa",
@@ -3870,341 +3890,341 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         child: SafeArea(
           child: Column(
-              children: [
-          // Top profile section
-          SizedBox(
-          height: MediaQuery.of(context).size.height * 0.4,
-          child: Stack(
             children: [
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              // Top profile section
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.4,
+                child: Stack(
                   children: [
-                  Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                  CircleAvatar(
-                  radius: 100,
-                  backgroundColor: Colors.white70,
-                  child: currentAvatarUrl != null
-                      ? ClipOval(
-                    child: SvgPicture.network(
-                      currentAvatarUrl!,
-                      fit: BoxFit.cover,
-                      width: 190,
-                      height: 190,
-                      placeholderBuilder: (context) => Container(
-                        color: Colors.grey[200],
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                      errorBuilder: (context, error, stackTrace) => Image.asset(
-                        'assets/images/sam.jpeg',
-                        fit: BoxFit.cover,
-                        width: 190,
-                        height: 190,
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              CircleAvatar(
+                                radius: 100,
+                                backgroundColor: Colors.white70,
+                                child: currentAvatarUrl != null
+                                    ? ClipOval(
+                                  child: SvgPicture.network(
+                                    currentAvatarUrl!,
+                                    fit: BoxFit.cover,
+                                    width: 190,
+                                    height: 190,
+                                    placeholderBuilder: (context) => Container(
+                                      color: Colors.grey[200],
+                                      child: const Center(child: CircularProgressIndicator()),
+                                    ),
+                                    errorBuilder: (context, error, stackTrace) => Image.asset(
+                                      'assets/images/sam.jpeg',
+                                      fit: BoxFit.cover,
+                                      width: 190,
+                                      height: 190,
+                                    ),
+                                  ),
+                                )
+                                    : const Icon(Icons.person, size: 100, color: Colors.blue),
+                              ),
+                              GestureDetector(
+                                onTap: _showAvatarSelectionDialog,
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(Icons.edit, color: Colors.blue, size: 24),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            name ?? 'User Name',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                      : const Icon(Icons.person, size: 100, color: Colors.blue),
+                    Positioned(
+                      top: 8,
+                      right: 16,
+                      child: IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AccountSettingsScreen(
+                                onBack: () => Navigator.pop(context),
+                                onLogout: () {},
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                GestureDetector(
-                  onTap: _showAvatarSelectionDialog,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                    BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+              ),
+
+              // Main content area
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
                     ),
-                    ],
                   ),
-                  child: const Icon(Icons.edit, color: Colors.blue, size: 24),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Followers/Following section
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.blue.shade50, Colors.blue.shade100],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildFollowItem(
+                                count: followers.length,
+                                label: 'Followers',
+                                onTap: () => _showUserListDialog('Followers', followers),
+                              ),
+                              Container(height: 30, width: 1, color: Colors.grey[400]),
+                              _buildFollowItem(
+                                count: following.length,
+                                label: 'Following',
+                                onTap: () => _showUserListDialog('Following', following),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Email with icon
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            children: [
+                              Icon(Icons.email, color: Colors.grey[800], size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                emailId,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[800],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Compact info row
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              if (profession != null) _buildCompactInfoItem(
+                                icon: Icons.work_outline,
+                                text: profession!,
+                              ),
+                              if (ageGroup != null) _buildCompactInfoItem(
+                                icon: Icons.calendar_today_outlined,
+                                text: ageGroup!,
+                              ),
+                              if (gender != null) _buildCompactInfoItem(
+                                icon: Icons.person_outline,
+                                text: gender!,
+                              ),
+                              _buildCompactInfoItem(
+                                icon: Icons.location_on_outlined,
+                                text: 'India',
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // About section
+                        Container(
+                          width: double.infinity,
+
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'About',
+                                    style: TextStyle(
+                                      fontSize: 18,
+
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (!isEditingAbout)
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      onPressed: () => setState(() => isEditingAbout = true),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              isEditingAbout
+                                  ? Column(
+                                children: [
+                                  TextField(
+                                    controller: aboutController,
+                                    maxLines: 3,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      hintText: 'Tell something about yourself',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () => setState(() {
+                                          isEditingAbout = false;
+                                          aboutController.text = about;
+                                        }),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      ElevatedButton(
+                                        onPressed: _updateAbout,
+                                        child: const Text('Save'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                                  : Text(
+                                about,
+                                style: const TextStyle(fontSize: 15, height: 1.4),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Interests section
+                        if (interests != null && interests!.isNotEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Interests',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (!isAddingInterest)
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 18),
+                                        onPressed: () => setState(() => isAddingInterest = true),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: interests!.map((interest) => InputChip(
+                                    label: Text(interest),
+                                    onDeleted: interests!.length > 1
+                                        ? () => _removeInterest(interest)
+                                        : null,
+                                    deleteIcon: interests!.length > 1
+                                        ? const Icon(Icons.close, size: 16)
+                                        : null,
+                                  )).toList(),
+                                ),
+                                if (isAddingInterest) ...[
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: interestController,
+                                    decoration: InputDecoration(
+                                      border: const OutlineInputBorder(),
+                                      hintText: 'Add new interest',
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.check),
+                                        onPressed: _addInterest,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            name ?? 'User Name',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          ],
         ),
       ),
-      Positioned(
-        top: 8,
-        right: 16,
-        child: IconButton(
-          icon: const Icon(Icons.settings, color: Colors.white, size: 28),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AccountSettingsScreen(
-                  onBack: () => Navigator.pop(context),
-                  onLogout: () {},
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      ],
-    ),
-    ),
-
-    // Main content area
-    Expanded(
-    child: Container(
-    width: double.infinity,
-    decoration: const BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.only(
-    topLeft: Radius.circular(30),
-    topRight: Radius.circular(30),
-    ),
-    ),
-    child: SingleChildScrollView(
-    padding: const EdgeInsets.all(20),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    // Followers/Following section
-    Container(
-    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-    decoration: BoxDecoration(
-    gradient: LinearGradient(
-    colors: [Colors.blue.shade50, Colors.blue.shade100],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    ),
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: [
-    BoxShadow(
-    color: Colors.grey.withOpacity(0.1),
-    spreadRadius: 1,
-    blurRadius: 4,
-    offset: const Offset(0, 2),
-    ),
-    ],
-    ),
-    child: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    children: [
-    _buildFollowItem(
-    count: followers.length,
-    label: 'Followers',
-    onTap: () => _showUserListDialog('Followers', followers),
-    ),
-    Container(height: 30, width: 1, color: Colors.grey[400]),
-    _buildFollowItem(
-    count: following.length,
-    label: 'Following',
-    onTap: () => _showUserListDialog('Following', following),
-    ),
-    ],
-    ),
-    ),
-    const SizedBox(height: 16),
-
-    // Email with icon
-    Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-    children: [
-    Icon(Icons.email, color: Colors.grey[800], size: 20),
-    const SizedBox(width: 8),
-    Text(
-    emailId,
-    style: TextStyle(
-    fontSize: 18,
-    color: Colors.grey[800],
-    fontWeight: FontWeight.w500,
-    ),
-    ),
-    ],
-    ),
-    ),
-
-    // Compact info row
-    Padding(
-    padding: const EdgeInsets.only(bottom: 20),
-    child: Wrap(
-    spacing: 12,
-    runSpacing: 8,
-    children: [
-    if (profession != null) _buildCompactInfoItem(
-    icon: Icons.work_outline,
-    text: profession!,
-    ),
-    if (ageGroup != null) _buildCompactInfoItem(
-    icon: Icons.calendar_today_outlined,
-    text: ageGroup!,
-    ),
-    if (gender != null) _buildCompactInfoItem(
-    icon: Icons.person_outline,
-    text: gender!,
-    ),
-    _buildCompactInfoItem(
-    icon: Icons.location_on_outlined,
-    text: 'India',
-    ),
-    ],
-    ),
-    ),
-
-    // About section
-    Container(
-    width: double.infinity,
-
-    padding: const EdgeInsets.all(16),
-    margin: const EdgeInsets.only(bottom: 16),
-    decoration: BoxDecoration(
-    color: Colors.blue.shade100,
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    const Text(
-    'About',
-    style: TextStyle(
-    fontSize: 18,
-
-    fontWeight: FontWeight.bold,
-    ),
-    ),
-    const Spacer(),
-    if (!isEditingAbout)
-    IconButton(
-    icon: const Icon(Icons.edit, size: 18),
-    onPressed: () => setState(() => isEditingAbout = true),
-    ),
-    ],
-    ),
-    const SizedBox(height: 8),
-    isEditingAbout
-    ? Column(
-    children: [
-    TextField(
-    controller: aboutController,
-    maxLines: 3,
-    decoration: const InputDecoration(
-    border: OutlineInputBorder(),
-    hintText: 'Tell something about yourself',
-    ),
-    ),
-    const SizedBox(height: 10),
-    Row(
-    mainAxisAlignment: MainAxisAlignment.end,
-    children: [
-    TextButton(
-    onPressed: () => setState(() {
-    isEditingAbout = false;
-    aboutController.text = about;
-    }),
-    child: const Text('Cancel'),
-    ),
-    const SizedBox(width: 10),
-    ElevatedButton(
-    onPressed: _updateAbout,
-    child: const Text('Save'),
-    ),
-    ],
-    ),
-    ],
-    )
-        : Text(
-    about,
-    style: const TextStyle(fontSize: 15, height: 1.4),
-    ),
-    ],
-    ),
-    ),
-
-    // Interests section
-    if (interests != null && interests!.isNotEmpty)
-    Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.blue.shade100,
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(color: Colors.grey.shade200),
-    ),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    const Text(
-    'Interests',
-    style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-    ),
-    ),
-    const Spacer(),
-    if (!isAddingInterest)
-    IconButton(
-    icon: const Icon(Icons.edit, size: 18),
-    onPressed: () => setState(() => isAddingInterest = true),
-    ),
-    ],
-    ),
-    const SizedBox(height: 12),
-    Wrap(
-    spacing: 10,
-    runSpacing: 10,
-    children: interests!.map((interest) => InputChip(
-    label: Text(interest),
-    onDeleted: interests!.length > 1
-    ? () => _removeInterest(interest)
-        : null,
-    deleteIcon: interests!.length > 1
-    ? const Icon(Icons.close, size: 16)
-        : null,
-    )).toList(),
-    ),
-    if (isAddingInterest) ...[
-    const SizedBox(height: 12),
-    TextField(
-    controller: interestController,
-    decoration: InputDecoration(
-    border: const OutlineInputBorder(),
-    hintText: 'Add new interest',
-    suffixIcon: IconButton(
-    icon: const Icon(Icons.check),
-    onPressed: _addInterest,
-    ),
-    ),
-    ),
-    ],
-    ],
-    ),
-    ),
-    ],
-    ),
-    ),
-    ),
-    ),
-    ],
-    ),
-    ),
-    ),
     );
   }
 }
