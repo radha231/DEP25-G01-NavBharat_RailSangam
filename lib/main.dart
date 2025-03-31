@@ -1350,7 +1350,6 @@ class _TravelersPageState extends State<TravelersPage> {
   Map<String, dynamic> currentUser = {
     'name': 'Loading...',
     'avatar': 'assets/images/sam.jpeg',
-    'stories': [],
   };
 
   Future<Map<String, dynamic>> _fetchCurrentUserDetails() async {
@@ -1364,10 +1363,16 @@ class _TravelersPageState extends State<TravelersPage> {
         final userDoc = userSnapshot.docs.first;
         final userData = userDoc.data() as Map<String, dynamic>;
 
-        // Return the current user's details (without 'stories')
+        // Ensure we have a valid avatar URL or use default
+        String avatarUrl = userData['avatarUrl']?.toString() ?? '';
+        print("\n\n\n\n\\n\n\n\n\n\n avatar of cuureent user is: $avatarUrl\n\n\n\n\n\n");
+        if (avatarUrl.isEmpty) {
+          avatarUrl = 'assets/images/sam.jpeg';
+        }
+
         return {
           'name': userData['Name'] ?? 'Unknown',
-          'avatar': userData['avatar'] ?? 'assets/images/sam.jpeg',
+          'avatarUrl': avatarUrl, // Use consistent field name
         };
       } else {
         throw Exception('Current user document not found: $emailId');
@@ -1376,11 +1381,10 @@ class _TravelersPageState extends State<TravelersPage> {
       print('Error fetching current user details: $e');
       return {
         'name': 'Unknown',
-        'avatar': 'assets/images/sam.jpeg',
+        'avatarUrl': 'assets/images/sam.jpeg',
       };
     }
   }
-
   // Sample data for friends
 
 
@@ -1436,6 +1440,52 @@ class _TravelersPageState extends State<TravelersPage> {
     end: Alignment.bottomRight,
   );
 
+
+  Widget _buildSvgAvatar({
+    required String? avatarUrl,
+    double size = 56.0,
+  }) {
+    final String effectiveUrl = avatarUrl ?? 'assets/images/sam.jpeg';
+
+    try {
+      return ClipOval(
+        child: effectiveUrl.startsWith('http')
+            ? (effectiveUrl.endsWith('.svg')
+            ? SvgPicture.network(
+          effectiveUrl,
+          width: size,
+          height: size,
+          placeholderBuilder: (context) => _buildPlaceholder(size),
+          fit: BoxFit.cover,
+        )
+            : Image.network(
+          effectiveUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(size),
+        ))
+            : Image.asset(
+          effectiveUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(size),
+        ),
+      );
+    } catch (e) {
+      return _buildPlaceholder(size);
+    }
+  }
+
+  Widget _buildPlaceholder(double size) {
+    return Container(
+      width: size,
+      height: size,
+      color: Colors.grey[200],
+      child: Icon(Icons.person, size: size / 2),
+    );
+  }
 
 
   Future<void> _fetchSuggestedUsers() async {
@@ -1690,34 +1740,53 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
-  // Updated avatar widget with better styling
   Widget _buildUserAvatar({
-    required String? avatar,
+    required String? avatarUrl,
     required String? name,
     required String email,
+    double size = 56.0,
     VoidCallback? onTap,
   }) {
+    final String effectiveUrl = avatarUrl ?? 'assets/images/sam.jpeg';
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // SVG Avatar Circle
           Container(
-            padding: EdgeInsets.all(2),
-            child: CircleAvatar(
-              radius: 28,
-              backgroundImage: avatar != null
-                  ? AssetImage(avatar)
-                  : AssetImage('assets/images/sam.jpeg'),
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey[200], // Background color
+            ),
+            child: ClipOval(
+              child: effectiveUrl.startsWith('http')
+                  ? SvgPicture.network(
+                effectiveUrl,
+                width: size,
+                height: size,
+                placeholderBuilder: (context) => Center(
+                  child: CircularProgressIndicator(),
+                ),
+                fit: BoxFit.cover,
+              )
+                  : Image.asset(
+                effectiveUrl,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
-          SizedBox(height: 5),
+          SizedBox(height: 8),
           Text(
             name ?? 'Unknown',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1725,6 +1794,16 @@ class _TravelersPageState extends State<TravelersPage> {
         ],
       ),
     );
+  }
+
+  ImageProvider _getAvatarImageProvider(String url) {
+    if (url.startsWith('http')) {
+      return NetworkImage(url);
+    } else if (url.startsWith('assets/')) {
+      return AssetImage(url);
+    } else {
+      return AssetImage('assets/images/sam.jpeg');
+    }
   }
 
   // Updated filter row with better styling
@@ -1923,9 +2002,10 @@ class _TravelersPageState extends State<TravelersPage> {
       suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
     });
   }
-  // Updated suggestion tile with better styling
+
+
   Widget _buildSuggestionTile({
-    required String? avatar,
+    required String? avatarUrl,
     required String? name,
     required String? email,
   }) {
@@ -1938,12 +2018,21 @@ class _TravelersPageState extends State<TravelersPage> {
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance
           .collection('Users')
-          .where('email_Id', isEqualTo: emailId) // Query the current user's data
-          .limit(1) // We expect only one document
+          .where('email_Id', isEqualTo: emailId)
+          .limit(1)
           .get(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return ListTile(
+            leading: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[200],
+              ),
+              child: Center(child: CircularProgressIndicator()),
+            ),
             title: Text(name ?? 'Unknown'),
             subtitle: Text(email),
             trailing: CircularProgressIndicator(),
@@ -1952,6 +2041,15 @@ class _TravelersPageState extends State<TravelersPage> {
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return ListTile(
+            leading: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[200],
+              ),
+              child: Icon(Icons.error),
+            ),
             title: Text(name ?? 'Unknown'),
             subtitle: Text(email),
             trailing: Text('Error'),
@@ -1967,10 +2065,10 @@ class _TravelersPageState extends State<TravelersPage> {
 
         if (pendingApprovals.contains(email)) {
           buttonText = 'Request Sent';
-          onPressed = null; // Disable button
+          onPressed = null;
         } else if (following.contains(email)) {
           buttonText = 'Following';
-          onPressed = null; // Disable button
+          onPressed = null;
         } else {
           buttonText = 'Follow';
           onPressed = () {
@@ -1979,21 +2077,43 @@ class _TravelersPageState extends State<TravelersPage> {
         }
 
         return ListTile(
-          leading: CircleAvatar(
-            backgroundImage: avatar != null
-                ? AssetImage(avatar)
-                : AssetImage('assets/images/sam.jpeg'),
+          leading: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey[200],
+            ),
+            child: ClipOval(
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? SvgPicture.network(
+                avatarUrl,
+                fit: BoxFit.cover,
+                placeholderBuilder: (context) => Center(
+                  child: CircularProgressIndicator(),
+                ),
+              )
+                  : Icon(Icons.person, size: 28),
+            ),
           ),
           title: Text(name ?? 'Unknown'),
           subtitle: Text(email),
           trailing: ElevatedButton(
             onPressed: onPressed,
-            child: Text(buttonText),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: onPressed == null ? Colors.grey : Colors.blue,
+            ),
+            child: Text(
+              buttonText,
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         );
       },
     );
   }
+
+
   Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
     try {
       final QuerySnapshot userSnapshot = await _firestore
@@ -2005,19 +2125,94 @@ class _TravelersPageState extends State<TravelersPage> {
         final userDoc = userSnapshot.docs.first;
         final userData = userDoc.data() as Map<String, dynamic>;
 
-        // Return the user details
+        // Get the avatar URL from database
+        String avatarUrl = userData['avatarUrl']?.toString() ?? '';
+
+        // If URL is empty or invalid, use default
+        if (avatarUrl.isEmpty) {
+          avatarUrl = 'assets/images/sam.jpeg';
+        }
+        // If it's an SVG URL, convert to PNG if from DiceBear
+        else if (avatarUrl.contains('dicebear.com') && avatarUrl.contains('.svg')) {
+          avatarUrl = avatarUrl.replaceFirst('.svg', '.png');
+        }
+
         return {
-          'Name': userData['Name'],
-          'avatar': userData['avatar'],
+          'Name': userData['Name'] ?? 'Unknown',
+          'avatarUrl': avatarUrl,
         };
       } else {
-        return {}; // Return empty map if no user is found
+        return {
+          'Name': 'Unknown',
+          'avatarUrl': 'assets/images/sam.jpeg',
+        };
       }
     } catch (e) {
       print('Error fetching user details: $e');
-      return {}; // Return empty map if an error occurs
+      return {
+        'Name': 'Unknown',
+        'avatarUrl': 'assets/images/sam.jpeg',
+      };
     }
   }
+
+
+  Widget _buildUniversalAvatar({
+    required String imageUrl,
+    required String name,
+    double radius = 28,
+  }) {
+    if (imageUrl.startsWith('assets/')) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: AssetImage(imageUrl),
+      );
+    }
+
+    if (imageUrl.endsWith('.svg')) {
+      return SizedBox(
+        width: radius * 2,
+        height: radius * 2,
+        child: ClipOval(
+          child: SvgPicture.network(
+            imageUrl,
+            placeholderBuilder: (context) => CircleAvatar(
+              radius: radius,
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ClipOval(
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        imageBuilder: (context, imageProvider) => Container(
+          width: radius * 2,
+          height: radius * 2,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            image: DecorationImage(
+              image: imageProvider,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.grey[200],
+          child: CircularProgressIndicator(),
+        ),
+        errorWidget: (context, url, error) => CircleAvatar(
+          radius: radius,
+          backgroundColor: Colors.grey[200],
+          child: Icon(Icons.person, size: radius),
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -2088,10 +2283,10 @@ class _TravelersPageState extends State<TravelersPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _buildUserAvatar(
-                            avatar: currentUser['avatar'],
+                            avatarUrl: currentUser['avatarUrl'],
                             name: currentUser['name'] ?? 'You',
                             email: emailId,
-                          ),
+                          )
                         ],
                       ),
                     ),
@@ -2115,17 +2310,17 @@ class _TravelersPageState extends State<TravelersPage> {
                                   return Padding(
                                     padding: EdgeInsets.symmetric(horizontal: 8),
                                     child: _buildUserAvatar(
-                                      avatar: null,
-                                      name: 'Unknown',
-                                      email: email,
-                                    ),
+                                      avatarUrl: currentUser['avatarUrl'],
+                                      name: currentUser['name'] ?? 'You',
+                                      email: emailId,
+                                    )
                                   );
                                 } else {
                                   final userDetails = snapshot.data!;
                                   return Padding(
                                     padding: EdgeInsets.only(right: 15),
                                     child: _buildUserAvatar(
-                                      avatar: userDetails['avatar'],
+                                      avatarUrl: userDetails['avatarUrl'],
                                       name: userDetails['Name'],
                                       email: email,
                                       onTap: () {
@@ -2230,7 +2425,7 @@ class _TravelersPageState extends State<TravelersPage> {
                         } else {
                           final userDetails = snapshot.data!;
                           return _buildSuggestionTile(
-                            avatar: userDetails['avatar'] as String?,
+                            avatarUrl: userDetails['avatarUrl'] as String?,
                             name: userDetails['Name'] as String?,
                             email: user['email_Id'] as String?,
                           );
@@ -2370,7 +2565,7 @@ class _TravelersPageState extends State<TravelersPage> {
           usersWithRequests.add({
             'email': requesterEmail,
             'name': requesterData['Name'],
-            'avatar': requesterData['avatar'],
+            'avatar': requesterData['avatarUrl'],
           });
         }
       }
@@ -2514,21 +2709,6 @@ class _TravelersPageState extends State<TravelersPage> {
   void _showFollowRequests() async {
     try {
       final List<Map<String, dynamic>> followRequests = await _fetchFollowRequests();
-      final QuerySnapshot currentUserSnapshot = await _firestore
-          .collection('Users')
-          .where('email_Id', isEqualTo: emailId)
-          .get();
-
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $emailId');
-      }
-
-      final currentUserDoc = currentUserSnapshot.docs.first;
-      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
-
-      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
-      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
-      final cleanedRejectedRequests = rejectedRequests.where((email) => !acceptedRequests.contains(email)).toList();
 
       showModalBottomSheet(
         context: context,
@@ -2538,7 +2718,7 @@ class _TravelersPageState extends State<TravelersPage> {
           return _buildModalCard(
             title: 'Follow Requests',
             children: [
-              if (followRequests.isEmpty && acceptedRequests.isEmpty && cleanedRejectedRequests.isEmpty)
+              if (followRequests.isEmpty)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
                   child: Text(
@@ -2558,20 +2738,33 @@ class _TravelersPageState extends State<TravelersPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 3,
-                        offset: Offset(0, 1),
-                      ),
+                    BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                    )
                     ],
                   ),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        backgroundImage: user['avatar'] != null
-                            ? AssetImage(user['avatar'])
-                            : AssetImage('assets/images/sam.jpeg'),
-                        radius: 25,
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey[200],
+                        ),
+                        child: ClipOval(
+                          child: user['avatar'] != null
+                              ? SvgPicture.network(
+                            user['avatar'],
+                            fit: BoxFit.cover,
+                            placeholderBuilder: (context) => Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                              : Icon(Icons.person),
+                        ),
                       ),
                       SizedBox(width: 12),
                       Expanded(
@@ -2616,7 +2809,6 @@ class _TravelersPageState extends State<TravelersPage> {
         },
       );
     } catch (e) {
-      print('[DEBUG] Error showing follow requests: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error showing follow requests: $e')),
       );
@@ -2678,20 +2870,33 @@ class _TravelersPageState extends State<TravelersPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            ),
+                          BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                          )
                           ],
                         ),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              backgroundImage: userDetails['avatar'] != null
-                                  ? AssetImage(userDetails['avatar'])
-                                  : AssetImage('assets/images/sam.jpeg'),
-                              radius: 25,
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.grey[200],
+                              ),
+                              child: ClipOval(
+                                child: userDetails['avatarUrl'] != null
+                                    ? SvgPicture.network(
+                                  userDetails['avatarUrl'],
+                                  fit: BoxFit.cover,
+                                  placeholderBuilder: (context) => Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                                    : Icon(Icons.person),
+                              ),
                             ),
                             SizedBox(width: 12),
                             Expanded(
@@ -2726,13 +2931,13 @@ class _TravelersPageState extends State<TravelersPage> {
         },
       );
     } catch (e) {
-      print('[DEBUG] Error showing pending approvals: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error showing pending approvals: $e')),
       );
     }
   }
 }
+
 
 
 // class HistoryCard extends StatelessWidget {
@@ -3327,35 +3532,69 @@ class ProfilePage extends StatefulWidget {
   @override
   _ProfilePageState createState() => _ProfilePageState(emailId: emailId);
 }
-
-
 class _ProfilePageState extends State<ProfilePage> {
   final String emailId;
-  String? currentAvatarUrl; // To store the current avatar URL
+  String? currentAvatarUrl;
   String? name;
   List<String>? interests;
+  String? profession;
+  String? ageGroup;
+  String? gender;
+
+  String about = "Tell us about yourself";
+  bool isEditingAbout = false;
+  bool isAddingInterest = false;
+  TextEditingController aboutController = TextEditingController();
+  TextEditingController interestController = TextEditingController();
+  List<String> followers = [];
+  List<String> following = [];
 
   _ProfilePageState({required this.emailId});
 
   Future<void> _fetchUserData() async {
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+    try {
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      final QuerySnapshot snapshot = await firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId.trim().toLowerCase())
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 10));
 
-    if (snapshot.docs.isNotEmpty) {
-      final DocumentSnapshot document = snapshot.docs.first;
-
-      // Check if fields exist and are not null
-      if (document['Name'] != null && document['Interests'] != null) {
+      if (snapshot.docs.isEmpty) {
         setState(() {
-          name = document['Name'];
-          interests = List<String>.from(document['Interests']);
-          currentAvatarUrl = document['avatar']; // Fetch the avatar URL
+          name = 'New User';
+          interests = ['Add your interests'];
+          currentAvatarUrl = 'assets/images/default_avatar.svg';
+          about = 'Tell us about yourself';
+          followers = [];
+          following = [];
         });
-      } else {
-        print('Name or Interests field is missing or null');
+        return;
       }
-    } else {
-      print('No user found with email: $emailId');
+
+      final DocumentSnapshot document = snapshot.docs.first;
+      final userData = document.data() as Map<String, dynamic>? ?? {};
+
+      setState(() {
+        name = userData['Name']?.toString() ?? 'User';
+        interests = List<String>.from(userData['Interests'] ?? ['Add your interests']);
+        currentAvatarUrl = userData['avatarUrl']?.toString() ?? 'assets/images/default_avatar.svg';
+        about = userData['about']?.toString() ?? 'Tell us about yourself';
+        followers = List<String>.from(userData['followers'] ?? []);
+        following = List<String>.from(userData['following'] ?? []);
+        profession = userData['Profession']?.toString();
+        ageGroup = userData['Age Group']?.toString();
+        gender = userData['Gender']?.toString();
+      });
+
+    } catch (e) {
+      setState(() {
+        name = 'User';
+        interests = ['Add your interests'];
+        currentAvatarUrl = 'assets/images/default_avatar.svg';
+        about = 'Tell us about yourself';
+      });
     }
   }
 
@@ -3363,78 +3602,213 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _fetchUserData();
+    aboutController.text = about;
   }
 
-  bool showSettings = false;
+  Future<void> _showUserListDialog(String title, List<String> users) async {
+    final firestore = FirebaseFirestore.instance;
+    List<Map<String, dynamic>> userDetails = [];
 
-  void _showAvatarSelectionDialog() {
-    // List of 8 male and 8 female Indian names
-    final List<String> indianNames = [
-      'Aarav', 'Vihaan', 'Arjun', 'Rohan', 'Kabir', 'Dhruv', 'Krish', 'Pranav', // Male names
-      'Aanya', 'Ananya', 'Radha', 'Kavya', 'Myra', 'Riya', 'Saanvi', 'Tara',     // Female names
-    ];
-
-    // Generate avatar URLs using DiceBear
-    final List<String> avatarUrls = [
-      "https://api.dicebear.com/7.x/micah/svg?seed=155&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=200&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=34&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=48&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=5&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=6&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=7&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=8&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=9&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=10&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=11&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=12&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=13&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=14&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=15&smile[]=happy",
-      "https://api.dicebear.com/7.x/micah/svg?seed=16&smile[]=happy",
-    ];
-    // Show the dialog box
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Choose an Avatar'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: GridView.builder(
-              shrinkWrap: true,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4, // 4 avatars per row
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
+      barrierDismissible: false,
+      builder: (context) => Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      for (String userId in users) {
+        final doc = await firestore.collection('Users').where('email_Id', isEqualTo: userId).get();
+        if (doc.docs.isNotEmpty) {
+          final userData = doc.docs.first.data();
+          userDetails.add({
+            'name': userData['Name'] ?? 'Unknown',
+            'email': userId,
+            'avatarUrl': userData['avatarUrl'] ?? '',
+          });
+        }
+      }
+
+      Navigator.of(context).pop();
+
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade50, Colors.blue.shade100],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              itemCount: avatarUrls.length,
-              itemBuilder: (context, index) {
-                return GestureDetector(
-                  onTap: () {
-                    // Update the profile picture with the selected avatar
-                    _updateProfilePicture(avatarUrls[index]);
-                    Navigator.pop(context); // Close the dialog
-                  },
-                  child: SvgPicture.network(
-                    avatarUrls[index],
-                    fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    title,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                );
-              },
+                ),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: userDetails.length,
+                    itemBuilder: (context, index) {
+                      final user = userDetails[index];
+                      return ListTile(
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[200],
+                          ),
+                          child: ClipOval(
+                            child: user['avatarUrl'].isNotEmpty
+                                ? SvgPicture.network(
+                              user['avatarUrl'],
+                              fit: BoxFit.cover,
+                              placeholderBuilder: (context) => Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                                : Icon(Icons.person, size: 24),
+                          ),
+                        ),
+                        title: Text(user['name']),
+                        subtitle: Text(user['email']),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Close the dialog
-              },
-              child: const Text('Cancel'),
+        ),
+      );
+    } catch (e) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading user data: $e')),
+      );
+    }
+  }
+
+  void _showAvatarSelectionDialog() {
+    final List<String> avatarUrls = [
+      "https://api.dicebear.com/9.x/micah/svg?seed=radha",
+      "https://api.dicebear.com/9.x/micah/svg?seed=arav",
+      "https://api.dicebear.com/9.x/micah/svg?seed=rrrrrrrr",
+          "https://api.dicebear.com/9.x/micah/svg?seed=Jameson",
+      "https://api.dicebear.com/9.x/micah/svg?seed=happya",
+      "https://api.dicebear.com/9.x/micah/svg?seed=George",
+      "https://api.dicebear.com/9.x/micah/svg?seed=liamaaaaaaaaaaaaaaaaaaa",
+      "https://api.dicebear.com/7.x/micah/svg?seed=8&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=9&smile[]=happy",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Masonaaaaaaaaaaaa",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Sawyerwwww",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Masonaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Jaaaassssssi",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Jaaaa",
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Choose an Avatar'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: GridView.builder(
+            shrinkWrap: true,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
             ),
-          ],
-        );
-      },
+            itemCount: avatarUrls.length,
+            itemBuilder: (context, index) => GestureDetector(
+              onTap: () {
+                _updateProfilePicture(avatarUrls[index]);
+                Navigator.pop(context);
+              },
+              child: SvgPicture.network(avatarUrls[index], fit: BoxFit.cover),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _updateAbout() async {
+    if (aboutController.text.isEmpty) return;
+
+    setState(() {
+      isEditingAbout = false;
+      about = aboutController.text;
+    });
+
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      await snapshot.docs.first.reference.update({'about': about});
+    }
+  }
+
+  Future<void> _addInterest() async {
+    if (interestController.text.isEmpty) return;
+
+    setState(() {
+      isAddingInterest = false;
+      interests ??= [];
+      interests!.add(interestController.text);
+      interestController.clear();
+    });
+
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      await snapshot.docs.first.reference.update({'Interests': interests});
+    }
+  }
+
+  Future<void> _removeInterest(String interest) async {
+    if (interests == null || interests!.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must have at least one interest')),
+      );
+      return;
+    }
+
+    setState(() {
+      interests?.remove(interest);
+    });
+
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+
+    if (snapshot.docs.isNotEmpty) {
+      await snapshot.docs.first.reference.update({'Interests': interests});
+    }
   }
 
   Future<void> _updateProfilePicture(String avatarUrl) async {
@@ -3442,16 +3816,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final QuerySnapshot snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
 
     if (snapshot.docs.isNotEmpty) {
-      final DocumentSnapshot document = snapshot.docs.first;
-      await document.reference.update({
-        'avatar': avatarUrl, // Save the avatar URL
-      });
-
-      // Update the UI
-      setState(() {
-        currentAvatarUrl = avatarUrl;
-      });
-
+      await snapshot.docs.first.reference.update({'avatarUrl': avatarUrl});
+      setState(() => currentAvatarUrl = avatarUrl);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile picture updated successfully!')),
       );
@@ -3462,286 +3828,387 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // First check if we should show settings screen
-    if (showSettings) {
-      return AccountSettingsScreen(
-        onBack: () => setState(() => showSettings = false),
-        onLogout: () {
-          // Add your logout logic here
-          // For example: AuthService.logout();
-          // Then navigate to login page or perform any other actions
-        },
-      );
-    }
-
-    // If not showing settings, prepare measurements for the profile page
-    final screenHeight = MediaQuery.of(context).size.height;
-    final profileImageHeight = screenHeight * 0.55; // Adjusted to take less space
-
-    // Return the main profile layout
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: Column(
+  Widget _buildFollowItem({required int count, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
         children: [
-          // Top portion with profile image and controls
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Profile image container
-              Container(
-                height: profileImageHeight,
-                width: double.infinity,
-                child: currentAvatarUrl != null
-                    ? SvgPicture.network(
-                  currentAvatarUrl!,
-                  fit: BoxFit.cover,
-                )
-                    : Image.asset(
-                  'assets/images/sam.jpeg', // Fallback image
-                  fit: BoxFit.cover,
-                ),
-              ),
-
-              // Settings button (top right)
-              Positioned(
-                top: 40,
-                right: 16,
-                child: GestureDetector(
-                  onTap: () => setState(() => showSettings = true),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.settings,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Edit profile picture button
-              Positioned(
-                bottom: 10,
-                right: 20,
-                child: GestureDetector(
-                  onTap: _showAvatarSelectionDialog, // Updated method
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.edit,
-                      color: Colors.blue,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            count.toString(),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
           ),
-
-          // Profile information section - now BELOW the profile image
-          Expanded(
-            child: Container(
-              color: Colors.white,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Name and status
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '$name',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                height: 8,
-                                width: 8,
-                                margin: const EdgeInsets.only(right: 5),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[400],
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              Text(
-                                'Online',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.blue[400],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Occupation and location
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.work_outline,
-                          size: 16,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Professor',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'India',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 25),
-
-                    // About section
-                    const Text(
-                      'About',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'I am an Associate Professor (CSE, AI) & PMRF Coordinator at IIT Ropar.',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.black87,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-
-                    // Interests section
-                    const Text(
-                      'Interests',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Interest buttons
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: interests?.map((interest) =>
-                          _buildInterestButton(interest)
-                      )?.toList() ?? [], // Handle null interests with empty list
-                    ),
-                    const SizedBox(height: 25),
-
-                    // Placeholder for additional stats section
-                    const SizedBox(height: 15),
-                  ],
-                ),
-              ),
-            ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
         ],
       ),
     );
   }
 
-  // Helper method for creating interest buttons with icons
-  Widget _buildInterestButton(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.blue[400],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w500,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
-  // Helper method for creating stat items
-  Widget _buildStatItem(String value, String label) {
-    return Column(
+  Widget _buildCompactInfoItem({required IconData icon, required String text}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          value,
-
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 14,
-          ),
-        ),
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 4),
+        Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
       ],
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade300, Colors.blue.shade700],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+              children: [
+          // Top profile section
+          SizedBox(
+          height: MediaQuery.of(context).size.height * 0.4,
+          child: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                  Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                  CircleAvatar(
+                  radius: 100,
+                  backgroundColor: Colors.white70,
+                  child: currentAvatarUrl != null
+                      ? ClipOval(
+                    child: SvgPicture.network(
+                      currentAvatarUrl!,
+                      fit: BoxFit.cover,
+                      width: 190,
+                      height: 190,
+                      placeholderBuilder: (context) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorBuilder: (context, error, stackTrace) => Image.asset(
+                        'assets/images/sam.jpeg',
+                        fit: BoxFit.cover,
+                        width: 190,
+                        height: 190,
+                      ),
+                    ),
+                  )
+                      : const Icon(Icons.person, size: 100, color: Colors.blue),
+                ),
+                GestureDetector(
+                  onTap: _showAvatarSelectionDialog,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                    BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                    ),
+                    ],
+                  ),
+                  child: const Icon(Icons.edit, color: Colors.blue, size: 24),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            name ?? 'User Name',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          ],
+        ),
+      ),
+      Positioned(
+        top: 8,
+        right: 16,
+        child: IconButton(
+          icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AccountSettingsScreen(
+                  onBack: () => Navigator.pop(context),
+                  onLogout: () {},
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      ],
+    ),
+    ),
+
+    // Main content area
+    Expanded(
+    child: Container(
+    width: double.infinity,
+    decoration: const BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.only(
+    topLeft: Radius.circular(30),
+    topRight: Radius.circular(30),
+    ),
+    ),
+    child: SingleChildScrollView(
+    padding: const EdgeInsets.all(20),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    // Followers/Following section
+    Container(
+    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+    decoration: BoxDecoration(
+    gradient: LinearGradient(
+    colors: [Colors.blue.shade50, Colors.blue.shade100],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    ),
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+    BoxShadow(
+    color: Colors.grey.withOpacity(0.1),
+    spreadRadius: 1,
+    blurRadius: 4,
+    offset: const Offset(0, 2),
+    ),
+    ],
+    ),
+    child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    children: [
+    _buildFollowItem(
+    count: followers.length,
+    label: 'Followers',
+    onTap: () => _showUserListDialog('Followers', followers),
+    ),
+    Container(height: 30, width: 1, color: Colors.grey[400]),
+    _buildFollowItem(
+    count: following.length,
+    label: 'Following',
+    onTap: () => _showUserListDialog('Following', following),
+    ),
+    ],
+    ),
+    ),
+    const SizedBox(height: 16),
+
+    // Email with icon
+    Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Row(
+    children: [
+    Icon(Icons.email, color: Colors.grey[800], size: 20),
+    const SizedBox(width: 8),
+    Text(
+    emailId,
+    style: TextStyle(
+    fontSize: 18,
+    color: Colors.grey[800],
+    fontWeight: FontWeight.w500,
+    ),
+    ),
+    ],
+    ),
+    ),
+
+    // Compact info row
+    Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: Wrap(
+    spacing: 12,
+    runSpacing: 8,
+    children: [
+    if (profession != null) _buildCompactInfoItem(
+    icon: Icons.work_outline,
+    text: profession!,
+    ),
+    if (ageGroup != null) _buildCompactInfoItem(
+    icon: Icons.calendar_today_outlined,
+    text: ageGroup!,
+    ),
+    if (gender != null) _buildCompactInfoItem(
+    icon: Icons.person_outline,
+    text: gender!,
+    ),
+    _buildCompactInfoItem(
+    icon: Icons.location_on_outlined,
+    text: 'India',
+    ),
+    ],
+    ),
+    ),
+
+    // About section
+    Container(
+    width: double.infinity,
+
+    padding: const EdgeInsets.all(16),
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+    color: Colors.blue.shade100,
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    const Text(
+    'About',
+    style: TextStyle(
+    fontSize: 18,
+
+    fontWeight: FontWeight.bold,
+    ),
+    ),
+    const Spacer(),
+    if (!isEditingAbout)
+    IconButton(
+    icon: const Icon(Icons.edit, size: 18),
+    onPressed: () => setState(() => isEditingAbout = true),
+    ),
+    ],
+    ),
+    const SizedBox(height: 8),
+    isEditingAbout
+    ? Column(
+    children: [
+    TextField(
+    controller: aboutController,
+    maxLines: 3,
+    decoration: const InputDecoration(
+    border: OutlineInputBorder(),
+    hintText: 'Tell something about yourself',
+    ),
+    ),
+    const SizedBox(height: 10),
+    Row(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: [
+    TextButton(
+    onPressed: () => setState(() {
+    isEditingAbout = false;
+    aboutController.text = about;
+    }),
+    child: const Text('Cancel'),
+    ),
+    const SizedBox(width: 10),
+    ElevatedButton(
+    onPressed: _updateAbout,
+    child: const Text('Save'),
+    ),
+    ],
+    ),
+    ],
+    )
+        : Text(
+    about,
+    style: const TextStyle(fontSize: 15, height: 1.4),
+    ),
+    ],
+    ),
+    ),
+
+    // Interests section
+    if (interests != null && interests!.isNotEmpty)
+    Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.blue.shade100,
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    const Text(
+    'Interests',
+    style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    ),
+    ),
+    const Spacer(),
+    if (!isAddingInterest)
+    IconButton(
+    icon: const Icon(Icons.edit, size: 18),
+    onPressed: () => setState(() => isAddingInterest = true),
+    ),
+    ],
+    ),
+    const SizedBox(height: 12),
+    Wrap(
+    spacing: 10,
+    runSpacing: 10,
+    children: interests!.map((interest) => InputChip(
+    label: Text(interest),
+    onDeleted: interests!.length > 1
+    ? () => _removeInterest(interest)
+        : null,
+    deleteIcon: interests!.length > 1
+    ? const Icon(Icons.close, size: 16)
+        : null,
+    )).toList(),
+    ),
+    if (isAddingInterest) ...[
+    const SizedBox(height: 12),
+    TextField(
+    controller: interestController,
+    decoration: InputDecoration(
+    border: const OutlineInputBorder(),
+    hintText: 'Add new interest',
+    suffixIcon: IconButton(
+    icon: const Icon(Icons.check),
+    onPressed: _addInterest,
+    ),
+    ),
+    ),
+    ],
+    ],
+    ),
+    ),
+    ],
+    ),
+    ),
+    ),
+    ),
+    ],
+    ),
+    ),
+    ),
+    );
+  }
 }
+
 
 // Keeping the rest of the classes unchanged
 class InterestButton extends StatelessWidget {
