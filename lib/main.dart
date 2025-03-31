@@ -817,8 +817,8 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
+            topLeft: Radius.circular(2),
+            topRight: Radius.circular(2),
           ),
         ),
         margin: EdgeInsets.zero, // Remove all margins
