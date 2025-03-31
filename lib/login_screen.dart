@@ -42,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showRegistrationForm() {
+ void _showRegistrationForm() {
     // Controllers for form fields
     final TextEditingController nameController = TextEditingController();
     final TextEditingController emailController = TextEditingController();
@@ -51,9 +51,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Track user interests
     List<String> userInterests = [];
-
+    String? selectedAvatarUrl;
     // Form key for validation
     final formKey = GlobalKey<FormState>();
+
+    // List of avatar URLs
+    final List<String> avatarUrls = [
+      "https://api.dicebear.com/9.x/micah/svg?seed=radha",
+      "https://api.dicebear.com/9.x/micah/svg?seed=arav",
+      "https://api.dicebear.com/9.x/micah/svg?seed=rrrrrrrr",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Jameson",
+      "https://api.dicebear.com/9.x/micah/svg?seed=happya",
+      "https://api.dicebear.com/9.x/micah/svg?seed=George",
+      "https://api.dicebear.com/9.x/micah/svg?seed=liamaaaaaaaaaaaaaaaaaaa",
+      "https://api.dicebear.com/7.x/micah/svg?seed=8&smile[]=happy",
+      "https://api.dicebear.com/7.x/micah/svg?seed=9&smile[]=happy",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Masonaaaaaaaaaaaa",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Sawyerwwww",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Masonaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Jaaaassssssi",
+      "https://api.dicebear.com/9.x/micah/svg?seed=Jaaaa",
+    ];
+
 
     showDialog(
       context: context,
@@ -91,6 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       SizedBox(height: 12),
+
 
                       // Email
                       TextFormField(
@@ -131,6 +151,89 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       SizedBox(height: 12),
+
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return AlertDialog(
+                                      title: Text('Choose an Avatar'),
+                                      content: SizedBox(
+                                        width: double.maxFinite,
+                                        child: GridView.builder(
+                                          shrinkWrap: true,
+                                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 4,
+                                            crossAxisSpacing: 10,
+                                            mainAxisSpacing: 10,
+                                          ),
+                                          itemCount: avatarUrls.length,
+                                          itemBuilder: (context, index) {
+                                            return GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedAvatarUrl = avatarUrls[index];
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                              child: SvgPicture.network(
+                                                avatarUrls[index],
+                                                fit: BoxFit.cover,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: Text('Cancel'),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.blue, width: 2),
+                                ),
+                                child: selectedAvatarUrl != null
+                                    ? SvgPicture.network(
+                                  selectedAvatarUrl!,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                )
+                                    : Column(
+                                  children: [
+                                    Icon(Icons.add_a_photo, size: 40),
+                                    Text('Choose Avatar', style: TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 16),
+
 
                       // Age Group Dropdown
                       DropdownButtonFormField<String>(
@@ -188,6 +291,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         validator: (value) => value == null ? 'Please select your gender' : null,
                       ),
                       SizedBox(height: 16),
+
 
                       // Interests Section
                       Align(
@@ -265,6 +369,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       return;
                     }
 
+                    if (selectedAvatarUrl == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Please select an avatar')),
+                      );
+                      return;
+                    }
+
                     if (formKey.currentState!.validate()) {
                       try {
                         showDialog(
@@ -286,6 +397,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Profession': selectedProfession,
                           'Gender': selectedGender,
                           'Interests': userInterests,
+                          'avatarUrl': selectedAvatarUrl,
                           'createdAt': FieldValue.serverTimestamp(),
                           'followers': [],
                           'following': [],
@@ -323,6 +435,7 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
   }
+
 
   Future<void> _launchIRCTCWebsite() async {
     final Uri irctcUrl = Uri.parse('https://www.irctc.co.in/');
