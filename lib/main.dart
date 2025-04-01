@@ -2009,6 +2009,8 @@ class _TravelersPageState extends State<TravelersPage> {
     required String? avatarUrl,
     required String? name,
     required String? email,
+    required String? profession,
+    required List? interests,
   }) {
     if (email == null) {
       return ListTile(
@@ -2061,8 +2063,7 @@ class _TravelersPageState extends State<TravelersPage> {
 
         final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
         final List<dynamic> following = userData['following'] ?? [];
-        final List<dynamic> interests = userData['Interests'] ?? []; // Interests List
-        final String profession = userData['Profession'] ?? 'Unknown'; // Profession String
+        // final List<dynamic> interests = userData['Interests'] ?? []; // Interests List
 
         String buttonText;
         VoidCallback? onPressed;
@@ -2106,10 +2107,10 @@ class _TravelersPageState extends State<TravelersPage> {
             children: [
               Text(email),
               Text(
-                profession,
+                profession!,
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Profession with a bigger font
               ),
-              if (interests.isNotEmpty)
+              if (interests!.isNotEmpty)
                 Text(
                   "Interests: ${interests.join(', ')}",
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87), // Bigger and darker text
@@ -2448,6 +2449,8 @@ class _TravelersPageState extends State<TravelersPage> {
                             avatarUrl: userDetails['avatarUrl'] as String?,
                             name: userDetails['Name'] as String?,
                             email: user['email_Id'] as String?,
+                            profession: user['Profession'] as String?,
+                            interests: user['Interests'] as List<dynamic>?
                           );
                         }
                       },
