@@ -1350,7 +1350,7 @@ class _TravelersPageState extends State<TravelersPage> {
 
   Map<String, dynamic> currentUser = {
     'name': 'Loading...',
-    'avatar': 'assets/images/sam.jpeg',
+    'avatar': 'assets/images/sam.png',
   };
 
   Future<Map<String, dynamic>> _fetchCurrentUserDetails() async {
@@ -1368,7 +1368,7 @@ class _TravelersPageState extends State<TravelersPage> {
         String avatarUrl = userData['avatarUrl']?.toString() ?? '';
         print("\n\n\n\n\\n\n\n\n\n\n avatar of cuureent user is: $avatarUrl\n\n\n\n\n\n");
         if (avatarUrl.isEmpty) {
-          avatarUrl = 'assets/images/sam.jpeg';
+          avatarUrl = 'assets/images/sam.png';
         }
 
         return {
@@ -1382,7 +1382,7 @@ class _TravelersPageState extends State<TravelersPage> {
       print('Error fetching current user details: $e');
       return {
         'name': 'Unknown',
-        'avatarUrl': 'assets/images/sam.jpeg',
+        'avatarUrl': 'assets/images/sam.png',
       };
     }
   }
@@ -1446,7 +1446,7 @@ class _TravelersPageState extends State<TravelersPage> {
     required String? avatarUrl,
     double size = 56.0,
   }) {
-    final String effectiveUrl = avatarUrl ?? 'assets/images/sam.jpeg';
+    final String effectiveUrl = avatarUrl ?? 'assets/images/sam.png';
 
     try {
       return ClipOval(
@@ -1748,7 +1748,7 @@ class _TravelersPageState extends State<TravelersPage> {
     double size = 56.0,
     VoidCallback? onTap,
   }) {
-    final String effectiveUrl = avatarUrl ?? 'assets/images/sam.jpeg';
+    final String effectiveUrl = avatarUrl ?? 'assets/images/sam.png';
 
     return GestureDetector(
       onTap: onTap,
@@ -1803,7 +1803,7 @@ class _TravelersPageState extends State<TravelersPage> {
     } else if (url.startsWith('assets/')) {
       return AssetImage(url);
     } else {
-      return AssetImage('assets/images/sam.jpeg');
+      return AssetImage('assets/images/sam.png');
     }
   }
 
@@ -2150,7 +2150,7 @@ class _TravelersPageState extends State<TravelersPage> {
 
         // If URL is empty or invalid, use default
         if (avatarUrl.isEmpty) {
-          avatarUrl = 'assets/images/sam.jpeg';
+          avatarUrl = 'assets/images/sam.png';
         }
         // If it's an SVG URL, convert to PNG if from DiceBear
         else if (avatarUrl.contains('dicebear.com') && avatarUrl.contains('.svg')) {
@@ -2164,14 +2164,14 @@ class _TravelersPageState extends State<TravelersPage> {
       } else {
         return {
           'Name': 'Unknown',
-          'avatarUrl': 'assets/images/sam.jpeg',
+          'avatarUrl': 'assets/images/sam.png',
         };
       }
     } catch (e) {
       print('Error fetching user details: $e');
       return {
         'Name': 'Unknown',
-        'avatarUrl': 'assets/images/sam.jpeg',
+        'avatarUrl': 'assets/images/sam.png',
       };
     }
   }
@@ -3918,7 +3918,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       child: const Center(child: CircularProgressIndicator()),
                                     ),
                                     errorBuilder: (context, error, stackTrace) => Image.asset(
-                                      'assets/images/sam.jpeg',
+                                      'assets/images/sam.png',
                                       fit: BoxFit.cover,
                                       width: 190,
                                       height: 190,
@@ -4154,7 +4154,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         //     ],
                         //   ),
                         // ),
-                        const SizedBox(height: 12),
+                        // const SizedBox(height: 12),
 
                         // Interests section
                         if (interests != null && interests!.isNotEmpty)
