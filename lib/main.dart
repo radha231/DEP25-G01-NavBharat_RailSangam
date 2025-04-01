@@ -1114,18 +1114,18 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                                 'To: ${widget.selectedTrain.stations.last}',
                                 style: const TextStyle(fontSize: 13),
                               ),
-                              Text(
-                                'Train ID: ${widget.selectedTrain ?? 'N/A'}',
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              Text(
-                                'Status: On Time',
-                                style: TextStyle(
-                                  color: Colors.green[700],
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
+                              // Text(
+                              //   'Train ID: ${widget.selectedTrain ?? 'N/A'}',
+                              //   style: const TextStyle(fontSize: 13),
+                              // ),
+                              // Text(
+                              //   'Status: On Time',
+                              //   style: TextStyle(
+                              //     color: Colors.green[700],
+                              //     fontWeight: FontWeight.bold,
+                              //     fontSize: 13,
+                              //   ),
+                              // ),
                             ],
                           ),
                         ),
@@ -3561,7 +3561,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? ageGroup;
   String? gender;
 
-  String about = "Tell us about yourself";
+  // String about = "Tell us about yourself";
   bool isEditingAbout = false;
   bool isAddingInterest = false;
   TextEditingController aboutController = TextEditingController();
@@ -3586,7 +3586,7 @@ class _ProfilePageState extends State<ProfilePage> {
           name = 'New User';
           interests = ['Add your interests'];
           currentAvatarUrl = 'assets/images/default_avatar.svg';
-          about = 'Tell us about yourself';
+          // about = 'Tell us about yourself';
           followers = [];
           following = [];
         });
@@ -3600,7 +3600,7 @@ class _ProfilePageState extends State<ProfilePage> {
         name = userData['Name']?.toString() ?? 'User';
         interests = List<String>.from(userData['Interests'] ?? ['Add your interests']);
         currentAvatarUrl = userData['avatarUrl']?.toString() ?? 'assets/images/default_avatar.svg';
-        about = userData['about']?.toString() ?? 'Tell us about yourself';
+        // about = userData['about']?.toString() ?? 'Tell us about yourself';
         followers = List<String>.from(userData['followers'] ?? []);
         following = List<String>.from(userData['following'] ?? []);
         profession = userData['Profession']?.toString();
@@ -3613,7 +3613,7 @@ class _ProfilePageState extends State<ProfilePage> {
         name = 'User';
         interests = ['Add your interests'];
         currentAvatarUrl = 'assets/images/default_avatar.svg';
-        about = 'Tell us about yourself';
+        // about = 'Tell us about yourself';
       });
     }
   }
@@ -3622,7 +3622,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _fetchUserData();
-    aboutController.text = about;
+    // aboutController.text = about;
   }
 
   Future<void> _showUserListDialog(String title, List<String> users) async {
@@ -3777,21 +3777,21 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _updateAbout() async {
-    if (aboutController.text.isEmpty) return;
-
-    setState(() {
-      isEditingAbout = false;
-      about = aboutController.text;
-    });
-
-    final firestore = FirebaseFirestore.instance;
-    final snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
-
-    if (snapshot.docs.isNotEmpty) {
-      await snapshot.docs.first.reference.update({'about': about});
-    }
-  }
+  // Future<void> _updateAbout() async {
+  //   if (aboutController.text.isEmpty) return;
+  //
+  //   setState(() {
+  //     isEditingAbout = false;
+  //     about = aboutController.text;
+  //   });
+  //
+  //   final firestore = FirebaseFirestore.instance;
+  //   final snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
+  //
+  //   if (snapshot.docs.isNotEmpty) {
+  //     await snapshot.docs.first.reference.update({'about': about});
+  //   }
+  // }
 
   Future<void> _addInterest() async {
     if (interestController.text.isEmpty) return;
@@ -4053,7 +4053,8 @@ class _ProfilePageState extends State<ProfilePage> {
                             ],
                           ),
                         ),
-
+                        const SizedBox(height: 12),
+                        
                         // Compact info row
                         Padding(
                           padding: const EdgeInsets.only(bottom: 20),
@@ -4082,77 +4083,78 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
 
                         // About section
-                        Container(
-                          width: double.infinity,
-
-                          padding: const EdgeInsets.all(16),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'About',
-                                    style: TextStyle(
-                                      fontSize: 18,
-
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  if (!isEditingAbout)
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, size: 18),
-                                      onPressed: () => setState(() => isEditingAbout = true),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              isEditingAbout
-                                  ? Column(
-                                children: [
-                                  TextField(
-                                    controller: aboutController,
-                                    maxLines: 3,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      hintText: 'Tell something about yourself',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      TextButton(
-                                        onPressed: () => setState(() {
-                                          isEditingAbout = false;
-                                          aboutController.text = about;
-                                        }),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      ElevatedButton(
-                                        onPressed: _updateAbout,
-                                        child: const Text('Save'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              )
-                                  : Text(
-                                about,
-                                style: const TextStyle(fontSize: 15, height: 1.4),
-                              ),
-                            ],
-                          ),
-                        ),
+                        // Container(
+                        //   width: double.infinity,
+                        //
+                        //   padding: const EdgeInsets.all(16),
+                        //   margin: const EdgeInsets.only(bottom: 16),
+                        //   decoration: BoxDecoration(
+                        //     color: Colors.blue.shade100,
+                        //     borderRadius: BorderRadius.circular(12),
+                        //     border: Border.all(color: Colors.grey.shade200),
+                        //   ),
+                        //   child: Column(
+                        //     crossAxisAlignment: CrossAxisAlignment.start,
+                        //     children: [
+                        //       Row(
+                        //         crossAxisAlignment: CrossAxisAlignment.start,
+                        //         children: [
+                        //           const Text(
+                        //             'About',
+                        //             style: TextStyle(
+                        //               fontSize: 18,
+                        //
+                        //               fontWeight: FontWeight.bold,
+                        //             ),
+                        //           ),
+                        //           const Spacer(),
+                        //           if (!isEditingAbout)
+                        //             IconButton(
+                        //               icon: const Icon(Icons.edit, size: 18),
+                        //               onPressed: () => setState(() => isEditingAbout = true),
+                        //             ),
+                        //         ],
+                        //       ),
+                        //       const SizedBox(height: 8),
+                        //       isEditingAbout
+                        //           ? Column(
+                        //         children: [
+                        //           TextField(
+                        //             controller: aboutController,
+                        //             maxLines: 3,
+                        //             decoration: const InputDecoration(
+                        //               border: OutlineInputBorder(),
+                        //               hintText: 'Tell something about yourself',
+                        //             ),
+                        //           ),
+                        //           const SizedBox(height: 10),
+                        //           Row(
+                        //             mainAxisAlignment: MainAxisAlignment.end,
+                        //             children: [
+                        //               TextButton(
+                        //                 onPressed: () => setState(() {
+                        //                   isEditingAbout = false;
+                        //                   aboutController.text = about;
+                        //                 }),
+                        //                 child: const Text('Cancel'),
+                        //               ),
+                        //               const SizedBox(width: 10),
+                        //               ElevatedButton(
+                        //                 onPressed: _updateAbout,
+                        //                 child: const Text('Save'),
+                        //               ),
+                        //             ],
+                        //           ),
+                        //         ],
+                        //       )
+                        //           : Text(
+                        //         about,
+                        //         style: const TextStyle(fontSize: 15, height: 1.4),
+                        //       ),
+                        //     ],
+                        //   ),
+                        // ),
+                        const SizedBox(height: 12),
 
                         // Interests section
                         if (interests != null && interests!.isNotEmpty)
