@@ -4054,7 +4054,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        
+
                         // Compact info row
                         Padding(
                           padding: const EdgeInsets.only(bottom: 20),
@@ -4154,7 +4154,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         //     ],
                         //   ),
                         // ),
-                        // const SizedBox(height: 12),
+                        const SizedBox(height: 12),
 
                         // Interests section
                         if (interests != null && interests!.isNotEmpty)
