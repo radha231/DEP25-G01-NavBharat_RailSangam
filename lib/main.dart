@@ -2019,7 +2019,7 @@ class _TravelersPageState extends State<TravelersPage> {
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance
           .collection('Users')
-          .where('email_Id', isEqualTo: email)
+          .where('email_Id', isEqualTo: emailId)
           .limit(1)
           .get(),
       builder: (context, snapshot) {
