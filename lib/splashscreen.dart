@@ -26,89 +26,73 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Full screen image
-          Image.asset(
-            'assets/images/train.jpg',
-            fit: BoxFit.cover,
-          ),
-
-          // Gradient overlay to improve text visibility
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.6),
-                    Colors.black.withOpacity(0.4),
-                  ],
+          // Centered content
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // App logo
+                Container(
+                  height: 180,
+                  width: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        spreadRadius: 3,
+                        blurRadius: 7,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/icon.jpg',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
 
-          // Centered text on top of the image
-          Positioned(
-            top: 100, // Adjust this value to position the text
-            left: 0,
-            right: 0,
-            child: Center(
-              child: RichText(
-                textAlign: TextAlign.center,
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Welcome to\n',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w300,
-                        color: const Color(0xFF00A54F), // Saffron green from Indian flag
-                        shadows: [
-                          Shadow(
-                            blurRadius: 10.0,
-                            color: Colors.black54,
-                            offset: Offset(2.0, 2.0),
-                          ),
-                        ],
+                const SizedBox(height: 40),
+
+                // App name text
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: const TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Welcome to\n',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w300,
+                          color: Colors.blue,
+                        ),
                       ),
-                    ),
-                    TextSpan(
-                      text: 'Train Social',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFFFF9933), // Saffron orange from Indian flag
-                        shadows: [
-                          Shadow(
-                            blurRadius: 10.0,
-                            color: Colors.black54,
-                            offset: Offset(2.0, 2.0),
-                          ),
-                        ],
+                      TextSpan(
+                        text: 'Train Social',
+                        style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.blue,
+                        ),
                       ),
-                    ),
-                    TextSpan(
-                      text: '\nApp',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w300,
-                        color: const Color(0xFF138808), // India green
-                        shadows: [
-                          Shadow(
-                            blurRadius: 10.0,
-                            color: Colors.black54,
-                            offset: Offset(2.0, 2.0),
-                          ),
-                        ],
+                      TextSpan(
+                        text: '\nApp',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w300,
+                          color: Colors.blue,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
 
@@ -119,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen> {
             right: 0,
             child: Center(
               child: CircularProgressIndicator(
-                color: Colors.white,
+                color: Colors.blue,
               ),
             ),
           ),
