@@ -4276,6 +4276,8 @@ class AccountSettingsScreen extends StatefulWidget {
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   // Controllers for password change
+  String? name;
+  String? emailId;
   final TextEditingController _oldPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -4293,6 +4295,12 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     _confirmPasswordController.dispose();
     _feedbackController.dispose();
     super.dispose();
+
+  }
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
   }
 
   // In your logout function:
@@ -4408,10 +4416,83 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             child: const Text('CANCEL'),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Add password change logic here
-              // Validate passwords match and handle the change
-              Navigator.pop(context);
+            onPressed: () async {
+              // Validate inputs
+              if (_oldPasswordController.text.isEmpty ||
+                  _newPasswordController.text.isEmpty ||
+                  _confirmPasswordController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All fields are required')),
+                );
+                return;
+              }
+
+              // Check if new password has at least 6 characters
+              if (_newPasswordController.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('New password must be at least 6 characters long')),
+                );
+                return;
+              }
+
+              // Check if new passwords match
+              if (_newPasswordController.text != _confirmPasswordController.text) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('New passwords do not match')),
+                );
+                return;
+              }
+
+              try {
+                // Get reference to Firestore
+                final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+                // Query for the user document
+                final QuerySnapshot userSnapshot = await firestore
+                    .collection('Users')
+                    .where('email_Id', isEqualTo: emailId)
+                    .get();
+
+                if (userSnapshot.docs.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('User not found')),
+                  );
+                  return;
+                }
+
+                // Get the user document
+                final DocumentSnapshot userDoc = userSnapshot.docs.first;
+
+                // Check if old password is correct
+                if (userDoc['Password'] != _oldPasswordController.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Current password is incorrect')),
+                  );
+                  return;
+                }
+
+                // Update password in Firestore
+                await userDoc.reference.update({
+                  'Password': _newPasswordController.text,
+                });
+
+                // Clear text fields
+                _oldPasswordController.clear();
+                _newPasswordController.clear();
+                _confirmPasswordController.clear();
+
+                Navigator.pop(context);
+
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password changed successfully')),
+                );
+
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error changing password: $e')),
+                );
+              }
             },
             child: const Text('CHANGE'),
           ),
@@ -4507,6 +4588,31 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ),
     );
   }
+  Future<void> _fetchUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      emailId = prefs.getString('user_email');
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      final QuerySnapshot snapshot = await firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 10));
+
+      final DocumentSnapshot document = snapshot.docs.first;
+      final userData = document.data() as Map<String, dynamic>? ?? {};
+
+      setState(() {
+        name = userData['Name']?.toString() ?? 'User';
+      });
+
+    } catch (e) {
+      setState(() {
+        name = 'User';
+      });
+    }
+  }
 
   // Improved logout function
   void _handleLogout() async {
@@ -4522,6 +4628,53 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       MaterialPageRoute(builder: (context) => LoginScreen()),
           (Route<dynamic> route) => false,
     );
+  }
+  Future<void> _handleDeleteJourney() async {
+    try {
+      // Get the user's email from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('user_email');
+
+      if (userEmail == null) {
+        print('Error: User email not found in SharedPreferences');
+        return;
+      }
+
+      // Reference to Firestore
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+      // Query for documents in the Journey collection where email_id matches userEmail
+      final QuerySnapshot journeySnapshot = await firestore
+          .collection('Journey')
+          .where('email_id', isEqualTo: userEmail)
+          .get();
+
+      // Check if any documents were found
+      if (journeySnapshot.docs.isEmpty) {
+        print('No journey found for user: $userEmail');
+        return;
+      }
+
+      // Create a batch to execute multiple deletions
+      final WriteBatch batch = firestore.batch();
+
+      // Add delete operations to the batch
+      for (var doc in journeySnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Commit the batch
+      await batch.commit();
+
+      print('Successfully deleted ${journeySnapshot.docs.length} journey(s) for user: $userEmail');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage(emailId: userEmail)),
+      );
+    } catch (e) {
+      print('Error deleting journey: $e');
+      // Handle the error appropriately, perhaps show a snackbar or dialog
+    }
   }
 
   @override
@@ -4567,14 +4720,14 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ),
               ),
               title: Text(
-                'John Doe', // Replace with actual user name
+                name ?? "Guest", // Replace with actual user name
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: isDarkMode ? Colors.white : Colors.black,
                 ),
               ),
               subtitle: Text(
-                'john.doe@example.com', // Replace with actual user email
+                emailId ?? "email", // Replace with actual user email
                 style: TextStyle(
                   color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 ),
@@ -4631,30 +4784,30 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             ),
 
             // Data management
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.purple[900] : Colors.purple[50],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.storage,
-                  color: isDarkMode ? Colors.purple[300] : Colors.purple[600],
-                ),
-              ),
-              title: Text(
-                'Data Management',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-              subtitle: const Text('Download or delete your data'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // TODO: Implement data management screen
-              },
-            ),
+            // ListTile(
+            //   leading: Container(
+            //     padding: const EdgeInsets.all(8),
+            //     decoration: BoxDecoration(
+            //       color: isDarkMode ? Colors.purple[900] : Colors.purple[50],
+            //       shape: BoxShape.circle,
+            //     ),
+            //     child: Icon(
+            //       Icons.storage,
+            //       color: isDarkMode ? Colors.purple[300] : Colors.purple[600],
+            //     ),
+            //   ),
+            //   title: Text(
+            //     'Data Management',
+            //     style: TextStyle(
+            //       color: isDarkMode ? Colors.white : Colors.black,
+            //     ),
+            //   ),
+            //   subtitle: const Text('Download or delete your data'),
+            //   trailing: const Icon(Icons.chevron_right),
+            //   onTap: () {
+            //     // TODO: Implement data management screen
+            //   },
+            // ),
 
             const Divider(),
 
@@ -5085,7 +5238,27 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               ),
               onTap: () => _handleLogout(),
             ),
-
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.orange[900] : Colors.orange[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.delete,
+                  color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
+                ),
+              ),
+              title: Text(
+                'Delete Current Journey',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.orange[300] : Colors.orange[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onTap: () => _handleDeleteJourney(),
+            ),
 // NEW: Delete account option
             ListTile(
               leading: Container(
