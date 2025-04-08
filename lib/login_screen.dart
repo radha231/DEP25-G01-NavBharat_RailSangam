@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import './main.dart'; // Ensure this points to main.dart or home screen file
@@ -42,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
- void _showRegistrationForm() {
+  void _showRegistrationForm() {
     // Controllers for form fields
     final TextEditingController nameController = TextEditingController();
     final TextEditingController emailController = TextEditingController();
@@ -305,25 +306,70 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: TextFormField(
-                              controller: interestController,
+                            child: DropdownButtonFormField<String>(
                               decoration: InputDecoration(
-                                hintText: 'Enter an interest',
                                 isDense: true,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
+                              hint: Text('Select an interest'),
+                              value: null,
+                              items: [
+                                'Reading',
+                                'Cooking',
+                                'Fitness',
+                                'Photography',
+                                'Travel',
+                                'Music',
+                                'Gaming',
+                                'Art',
+                                'Technology',
+                                'Outdoor Activities',
+                                'Other'
+                              ].map((String interest) {
+                                return DropdownMenuItem<String>(
+                                  value: interest,
+                                  child: Text(interest),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue == 'Other') {
+                                  // Show dialog to enter custom interest
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text('Add custom interest'),
+                                      content: TextField(
+                                        controller: interestController,
+                                        decoration: InputDecoration(hintText: 'Enter your interest'),
+                                        autofocus: true,
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            if (interestController.text.trim().isNotEmpty) {
+                                              setState(() {
+                                                userInterests.add(interestController.text.trim());
+                                                interestController.clear();
+                                              });
+                                            }
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text('Add'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                } else if (newValue != null && !userInterests.contains(newValue)) {
+                                  setState(() {
+                                    userInterests.add(newValue);
+                                  });
+                                }
+                              },
                             ),
-                          ),
-                          SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(Icons.add),
-                            onPressed: () {
-                              if (interestController.text.trim().isNotEmpty) {
-                                setState(() {
-                                  userInterests.add(interestController.text.trim());
-                                  interestController.clear();
-                                });
-                              }
-                            },
                           ),
                         ],
                       ),
