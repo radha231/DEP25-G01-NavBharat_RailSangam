@@ -24,6 +24,11 @@ import 'package:provider/provider.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:flutter_local_notifications_platform_interface/flutter_local_notifications_platform_interface.dart';
+
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
@@ -1347,6 +1352,8 @@ class _TravelersPageState extends State<TravelersPage> {
   _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
   // User's own data
 
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
 
   Map<String, dynamic> currentUser = {
     'name': 'Loading...',
@@ -1397,9 +1404,15 @@ class _TravelersPageState extends State<TravelersPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> suggestedUsers = [];
   bool _isLoading = false;
+  bool _isFirstLoad = true;
+  late SharedPreferences _prefs;
+
   @override
   void initState() {
     super.initState();
+    _initSharedPrefs();
+    _initializeNotifications();
+    _checkForPendingNotifications();
     // Initialize hover states for friends
     _fetchCurrentUserDetails().then((userDetails) {
       setState(() {
@@ -1410,8 +1423,66 @@ class _TravelersPageState extends State<TravelersPage> {
     _removeOverlappingRejectedRequests(emailId);
   }
 
+
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
+  Future<void> _initSharedPrefs() async {
+    _prefs = await SharedPreferences.getInstance();
+    final lastLoginTime = _prefs.getInt('lastLoginTime') ?? 0;
+    final currentTime = DateTime.now().millisecondsSinceEpoch;
+
+    // Consider it a new login if last login was more than 30 minutes ago
+    if (currentTime - lastLoginTime > 30 * 60 * 1000) {
+      await _prefs.setInt('lastLoginTime', currentTime);
+      _checkForPendingNotifications();
+    }
+
+    _isFirstLoad = false;
+  }
+
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    final DarwinInitializationSettings initializationSettingsDarwin =
+    DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    final InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null) {
+          _handleNotificationTap(response.payload!);
+        }
+      },
+    );
+  }
+
+  Future<String?> _getAvatarForNotification(String email) async {
+    try {
+      final userSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: email)
+          .get();
+
+      if (userSnapshot.docs.isNotEmpty) {
+        final userData = userSnapshot.docs.first.data() as Map<String, dynamic>;
+        return userData['avatarUrl'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching avatar: $e');
+      return null;
+    }
+  }
 
 
   String? selectedProfession;
@@ -2009,8 +2080,6 @@ class _TravelersPageState extends State<TravelersPage> {
     required String? avatarUrl,
     required String? name,
     required String? email,
-    required String? profession,
-    required List? interests,
   }) {
     if (email == null) {
       return ListTile(
@@ -2060,10 +2129,8 @@ class _TravelersPageState extends State<TravelersPage> {
         }
 
         final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-
         final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
         final List<dynamic> following = userData['following'] ?? [];
-        // final List<dynamic> interests = userData['Interests'] ?? []; // Interests List
 
         String buttonText;
         VoidCallback? onPressed;
@@ -2102,22 +2169,7 @@ class _TravelersPageState extends State<TravelersPage> {
             ),
           ),
           title: Text(name ?? 'Unknown'),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(email),
-              Text(
-                profession!,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Profession with a bigger font
-              ),
-              if (interests!.isNotEmpty)
-                Text(
-                  "Interests: ${interests.join(', ')}",
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87), // Bigger and darker text
-                ),
-            ],
-          ),
-
+          subtitle: Text(email),
           trailing: ElevatedButton(
             onPressed: onPressed,
             style: ElevatedButton.styleFrom(
@@ -2132,7 +2184,6 @@ class _TravelersPageState extends State<TravelersPage> {
       },
     );
   }
-
 
 
   Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
@@ -2329,12 +2380,12 @@ class _TravelersPageState extends State<TravelersPage> {
                                   return Icon(Icons.error);
                                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                                   return Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 8),
-                                      child: _buildUserAvatar(
-                                        avatarUrl: currentUser['avatarUrl'],
-                                        name: currentUser['name'] ?? 'You',
-                                        email: emailId,
-                                      )
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                    child: _buildUserAvatar(
+                                      avatarUrl: currentUser['avatarUrl'],
+                                      name: currentUser['name'] ?? 'You',
+                                      email: emailId,
+                                    )
                                   );
                                 } else {
                                   final userDetails = snapshot.data!;
@@ -2449,8 +2500,6 @@ class _TravelersPageState extends State<TravelersPage> {
                             avatarUrl: userDetails['avatarUrl'] as String?,
                             name: userDetails['Name'] as String?,
                             email: user['email_Id'] as String?,
-                            profession: user['Profession'] as String?,
-                            interests: user['Interests'] as List<dynamic>?
                           );
                         }
                       },
@@ -2465,7 +2514,6 @@ class _TravelersPageState extends State<TravelersPage> {
       ),
     );
   }
-  // Updated notification modal
   void _showNotifications() async {
     try {
       final QuerySnapshot currentUserSnapshot = await _firestore
@@ -2473,30 +2521,11 @@ class _TravelersPageState extends State<TravelersPage> {
           .where('email_Id', isEqualTo: emailId)
           .get();
 
-      if (currentUserSnapshot.docs.isEmpty) {
-        throw Exception('Current user document not found: $emailId');
-      }
+      if (currentUserSnapshot.docs.isEmpty) return;
 
       final currentUserDoc = currentUserSnapshot.docs.first;
       final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
-
       final List<dynamic> notifications = currentUserData['notifications'] ?? [];
-      final List<dynamic> acceptedRequests = currentUserData['acceptedRequests'] ?? [];
-      final List<dynamic> rejectedRequests = currentUserData['rejectedRequests'] ?? [];
-
-      final Set<String> validNotificationsSet = {};
-
-      for (final notification in notifications) {
-        final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})').firstMatch(notification);
-        if (emailMatch != null) {
-          final email = emailMatch.group(0);
-          if (acceptedRequests.contains(email) || rejectedRequests.contains(email)) {
-            validNotificationsSet.add(notification);
-          }
-        }
-      }
-
-      final List<String> validNotifications = validNotificationsSet.toList();
 
       showModalBottomSheet(
         context: context,
@@ -2506,11 +2535,11 @@ class _TravelersPageState extends State<TravelersPage> {
           return _buildModalCard(
             title: 'Notifications',
             children: [
-              if (validNotifications.isEmpty)
+              if (notifications.isEmpty)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
                   child: Text(
-                    'No new notifications.',
+                    'No notifications.',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
@@ -2518,7 +2547,7 @@ class _TravelersPageState extends State<TravelersPage> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              ...validNotifications.map((notification) {
+              ...notifications.reversed.map((notification) { // Show newest first
                 return Container(
                   margin: EdgeInsets.only(bottom: 10),
                   padding: EdgeInsets.all(12),
@@ -2534,7 +2563,7 @@ class _TravelersPageState extends State<TravelersPage> {
                     ],
                   ),
                   child: Text(
-                    notification,
+                    notification.toString(),
                     style: TextStyle(fontSize: 14),
                   ),
                 );
@@ -2543,8 +2572,17 @@ class _TravelersPageState extends State<TravelersPage> {
           );
         },
       );
+
+      // DON'T clear notifications here - they should persist
+      // Only mark as shown in SharedPreferences for push notifications
+      final List<dynamic> shownNotifications = _prefs.getStringList('shownNotifications') ?? [];
+      await _prefs.setStringList(
+        'shownNotifications',
+        [...shownNotifications, ...notifications.map((n) => n.toString())],
+      );
+
     } catch (e) {
-      print('[DEBUG] Error showing notifications: $e');
+      print('Error showing notifications: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error showing notifications: $e')),
       );
@@ -2606,7 +2644,7 @@ class _TravelersPageState extends State<TravelersPage> {
 
   Future<void> _acceptFollowRequest(String requesterEmail) async {
     try {
-      // Get the current user's email
+      // Get the current user's email (this is the user who is accepting the request)
       final currentUserEmail = emailId;
 
       // Fetch the current user's document
@@ -2623,7 +2661,7 @@ class _TravelersPageState extends State<TravelersPage> {
       final timestamp = DateTime.now();
       final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
 
-      // Fetch the requester's document
+      // Fetch the requester's document (this is the user who sent the request)
       final QuerySnapshot requesterSnapshot = await _firestore
           .collection('Users')
           .where('email_Id', isEqualTo: requesterEmail)
@@ -2634,24 +2672,25 @@ class _TravelersPageState extends State<TravelersPage> {
       }
 
       final requesterDoc = requesterSnapshot.docs.first;
+      final requesterData = requesterDoc.data() as Map<String, dynamic>;
+      final requesterName = requesterData['Name'] ?? 'User';
 
       // Update the current user's document
       await _firestore.collection('Users').doc(currentUserDoc.id).update({
         'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
-        'followers': FieldValue.arrayUnion([requesterEmail]), // Add to acceptedRequests
+        'followers': FieldValue.arrayUnion([requesterEmail]), // Add to followers
       });
 
       // Update the requester's document
       await _firestore.collection('Users').doc(requesterDoc.id).update({
         'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
-        'following': FieldValue.arrayUnion([currentUserEmail]), // Add to fol
-        'acceptedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to acceptedRequests// lowing
+        'following': FieldValue.arrayUnion([currentUserEmail]), // Add to following
         'notifications': FieldValue.arrayUnion([
           '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
         ]), // Add notification to the requester's list
       });
 
-      // Show a success message
+      // Show a success message to the current user
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Follow request accepted from $requesterEmail')),
       );
@@ -2659,6 +2698,13 @@ class _TravelersPageState extends State<TravelersPage> {
       // Refresh the follow requests list
       await _removeOverlappingRejectedRequests(requesterEmail);
       _showFollowRequests();
+
+      // Show notification to the requester (not the current user)
+      await _showNotification(
+        message: 'You have accepted $requesterName\'s follow request!',
+        email: currentUserEmail, // This is the sender (current user)
+        targetEmail: requesterEmail, // This is who should receive the notification
+      );
     } catch (e) {
       print('[DEBUG] Error accepting follow request: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2668,7 +2714,7 @@ class _TravelersPageState extends State<TravelersPage> {
   }
   Future<void> _rejectFollowRequest(String requesterEmail) async {
     try {
-      // Get the current user's email
+      // Get the current user's email (this is the user who is rejecting the request)
       final currentUserEmail = emailId;
 
       // Fetch the current user's document
@@ -2685,7 +2731,7 @@ class _TravelersPageState extends State<TravelersPage> {
       final timestamp = DateTime.now();
       final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
 
-      // Fetch the requester's document
+      // Fetch the requester's document (this is the user who sent the request)
       final QuerySnapshot requesterSnapshot = await _firestore
           .collection('Users')
           .where('email_Id', isEqualTo: requesterEmail)
@@ -2696,6 +2742,8 @@ class _TravelersPageState extends State<TravelersPage> {
       }
 
       final requesterDoc = requesterSnapshot.docs.first;
+      final requesterData = requesterDoc.data() as Map<String, dynamic>;
+      final requesterName = requesterData['Name'] ?? 'User';
 
       // Update the current user's document
       await _firestore.collection('Users').doc(currentUserDoc.id).update({
@@ -2708,10 +2756,10 @@ class _TravelersPageState extends State<TravelersPage> {
         'rejectedRequests': FieldValue.arrayUnion([currentUserEmail]), // Add to rejectedRequests
         'notifications': FieldValue.arrayUnion([
           '$currentUserEmail has rejected your follow request. You can send a new request from suggestions. ($formattedTimestamp)',
-        ]), // Add notification
+        ]), // Add notification to the requester's list
       });
 
-      // Show a success message
+      // Show a success message to the current user
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Follow request rejected from $requesterEmail')),
       );
@@ -2719,11 +2767,158 @@ class _TravelersPageState extends State<TravelersPage> {
       // Refresh the follow requests list
       await _removeOverlappingRejectedRequests(currentUserEmail);
       _showFollowRequests();
+
+      // Show notification to the requester (not the current user)
+      await _showNotification(
+        message: 'You have rejected $requesterName\'s follow request.',
+        email: currentUserEmail, // This is the sender (current user)
+        targetEmail: requesterEmail, // This is who should receive the notification
+      );
     } catch (e) {
       print('[DEBUG] Error rejecting follow request: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error rejecting follow request: $e')),
       );
+    }
+  }
+
+  Future<void> _showNotification({
+    required String message,
+    required String email,
+    required String targetEmail,
+  }) async {
+    try {
+      if (targetEmail != emailId) {
+        print('Notification intended for $targetEmail, current user is $emailId');
+        return;
+      }
+      // Remove timestamp from message if present
+      final cleanMessage = message.replaceAll(RegExp(r'\(.*\)$'), '').trim();
+
+      // Android notification details
+      final androidPlatformChannelSpecifics = AndroidNotificationDetails(
+        'follow_requests_channel',
+        'Follow Requests',
+        channelDescription: 'Notifications for social interactions',
+        importance: Importance.max,
+        priority: Priority.high,
+        ticker: 'ticker',
+        styleInformation: BigTextStyleInformation(
+          contentTitle: 'Tap to see the notification!!',
+          cleanMessage,
+          htmlFormatBigText: true,
+          summaryText: 'New notification',
+        ),
+      );
+
+      // iOS notification details
+      final darwinPlatformChannelSpecifics = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        badgeNumber: 1,
+        subtitle: cleanMessage,
+        threadIdentifier: 'follow_requests',
+      );
+
+      final platformChannelSpecifics = NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: darwinPlatformChannelSpecifics,
+      );
+
+      if (targetEmail == emailId) {
+        await flutterLocalNotificationsPlugin.show(
+          DateTime
+              .now()
+              .millisecondsSinceEpoch ~/ 1000,
+          'Tap to see the notification!!',
+          cleanMessage,
+          platformChannelSpecifics,
+          payload: email,
+        );
+      }
+    } catch (e) {
+      print('Error showing notification: $e');
+    }
+  }
+  void _handleNotificationTap(String payload) {
+    // payload contains the email of the user who sent the notification
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => HomeScreen(
+          selectedUserEmail: payload,
+          selectedUserName: payload.split('@')[0],
+        ),
+      ),
+    );
+  }
+  Future<void> _checkForPendingNotifications() async {
+    try {
+      final currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isEmpty) return;
+
+      final currentUserDoc = currentUserSnapshot.docs.first;
+      final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+      final List<dynamic> notifications = currentUserData['notifications'] ?? [];
+      final List<dynamic> shownNotifications = _prefs.getStringList('shownNotifications') ?? [];
+
+      // Debug print to check what notifications we're working with
+      print('[DEBUG] All notifications for $emailId: $notifications');
+      print('[DEBUG] Already shown notifications: $shownNotifications');
+
+      // Find notifications that:
+      // 1. Are addressed to the current user (contain their email or are general notifications)
+      // 2. Haven't been shown yet
+      final newNotifications = notifications.where((notification) {
+
+        // Check if notification hasn't been shown yet
+        final notShownYet ;
+        if(shownNotifications.isEmpty){
+          notShownYet=true;
+        }
+        else{
+          notShownYet = !shownNotifications.contains(notification.toString());
+
+      }
+        return notShownYet;
+      }).toList();
+
+      print('[DEBUG] New notifications to show: $newNotifications');
+
+      if (newNotifications.isNotEmpty) {
+        // Show all new notifications (not just the most recent one)
+        for (final notification in newNotifications) {
+          final notificationStr = notification.toString();
+
+          // Try to extract the other user's email from the notification
+          String? otherUserEmail;
+          final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})')
+              .firstMatch(notificationStr);
+          if (emailMatch != null) {
+            otherUserEmail = emailMatch.group(0);
+          }
+
+          await _showNotification(
+            message: notificationStr.replaceAll(RegExp(r'\(.*\)$'), '').trim(),
+            email: otherUserEmail ?? 'system', // sender's email or 'system'
+            targetEmail: emailId, // always current user
+          );
+
+          // Mark as shown
+          shownNotifications.add(notificationStr);
+        }
+        // Store shown notifications in SharedPreferences
+        await _prefs.setStringList(
+            'shownNotifications',
+            [...shownNotifications, ...newNotifications]
+        );
+      }
+    } catch (e) {
+      print('Error checking for notifications: $e');
     }
   }
 
@@ -2761,11 +2956,11 @@ class _TravelersPageState extends State<TravelersPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 3,
-                        offset: Offset(0, 1),
-                      )
+                    BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                    )
                     ],
                   ),
                   child: Row(
@@ -2893,11 +3088,11 @@ class _TravelersPageState extends State<TravelersPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            )
+                          BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                          )
                           ],
                         ),
                         child: Row(
