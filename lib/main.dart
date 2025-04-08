@@ -2380,12 +2380,12 @@ class _TravelersPageState extends State<TravelersPage> {
                                   return Icon(Icons.error);
                                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                                   return Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 8),
-                                    child: _buildUserAvatar(
-                                      avatarUrl: currentUser['avatarUrl'],
-                                      name: currentUser['name'] ?? 'You',
-                                      email: emailId,
-                                    )
+                                      padding: EdgeInsets.symmetric(horizontal: 8),
+                                      child: _buildUserAvatar(
+                                        avatarUrl: currentUser['avatarUrl'],
+                                        name: currentUser['name'] ?? 'You',
+                                        email: emailId,
+                                      )
                                   );
                                 } else {
                                   final userDetails = snapshot.data!;
@@ -2883,7 +2883,7 @@ class _TravelersPageState extends State<TravelersPage> {
         else{
           notShownYet = !shownNotifications.contains(notification.toString());
 
-      }
+        }
         return notShownYet;
       }).toList();
 
@@ -2956,11 +2956,11 @@ class _TravelersPageState extends State<TravelersPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
-                    BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                    )
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      )
                     ],
                   ),
                   child: Row(
@@ -3088,11 +3088,11 @@ class _TravelersPageState extends State<TravelersPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
-                          BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                          )
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 3,
+                              offset: Offset(0, 1),
+                            )
                           ],
                         ),
                         child: Row(
@@ -3991,22 +3991,40 @@ class _ProfilePageState extends State<ProfilePage> {
   //   }
   // }
 
-  Future<void> _addInterest() async {
-    if (interestController.text.isEmpty) return;
-
-    setState(() {
-      isAddingInterest = false;
-      interests ??= [];
-      interests!.add(interestController.text);
-      interestController.clear();
-    });
-
-    final firestore = FirebaseFirestore.instance;
-    final snapshot = await firestore.collection('Users').where('email_Id', isEqualTo: emailId).get();
-
-    if (snapshot.docs.isNotEmpty) {
-      await snapshot.docs.first.reference.update({'Interests': interests});
+  void _addInterest(String newInterest) {
+    if (newInterest.isNotEmpty && !interests!.contains(newInterest)) {
+      setState(() {
+        interests!.add(newInterest);
+        // If needed, update in Firebase
+        _updateInterestsInDatabase();
+        isAddingInterest = false;
+      });
     }
+  }
+
+  void _addCustomInterest(String customInterest) {
+    if (customInterest.isNotEmpty && !interests!.contains(customInterest)) {
+      setState(() {
+        interests!.add(customInterest);
+        // If needed, update in Firebase
+        _updateInterestsInDatabase();
+      });
+    }
+  }
+
+  void _updateInterestsInDatabase() {
+    // Update interests in Firebase
+    FirebaseFirestore.instance
+        .collection('Users')
+        .where('email_Id', isEqualTo: emailId)
+        .get()
+        .then((querySnapshot) {
+      if (querySnapshot.docs.isNotEmpty) {
+        querySnapshot.docs.first.reference.update({
+          'Interests': interests,
+        });
+      }
+    });
   }
 
   Future<void> _removeInterest(String interest) async {
@@ -4355,6 +4373,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 12),
 
                         // Interests section
+                        // ram ram
                         if (interests != null && interests!.isNotEmpty)
                           Container(
                             width: double.infinity,
@@ -4401,16 +4420,76 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 if (isAddingInterest) ...[
                                   const SizedBox(height: 12),
-                                  TextField(
-                                    controller: interestController,
+                                  DropdownButtonFormField<String>(
                                     decoration: InputDecoration(
                                       border: const OutlineInputBorder(),
-                                      hintText: 'Add new interest',
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(Icons.check),
-                                        onPressed: _addInterest,
-                                      ),
+                                      hintText: 'Select an interest',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                     ),
+                                    hint: Text('Select an interest'),
+                                    value: null,
+                                    items: [
+                                      'Reading',
+                                      'Cooking',
+                                      'Fitness',
+                                      'Photography',
+                                      'Travel',
+                                      'Music',
+                                      'Gaming',
+                                      'Art',
+                                      'Technology',
+                                      'Outdoor Activities',
+                                      'Other'
+                                    ].map((String interest) {
+                                      return DropdownMenuItem<String>(
+                                        value: interest,
+                                        child: Text(interest),
+                                      );
+                                    }).toList(),
+                                    onChanged: (String? newValue) {
+                                      if (newValue == 'Other') {
+                                        // Show dialog to enter custom interest
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: Text('Add custom interest'),
+                                            content: TextField(
+                                              controller: interestController,
+                                              decoration: InputDecoration(hintText: 'Enter your interest'),
+                                              autofocus: true,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: Text('Cancel'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  if (interestController.text.trim().isNotEmpty) {
+                                                    _addCustomInterest(interestController.text.trim());
+                                                    interestController.clear();
+                                                  }
+                                                  Navigator.pop(context);
+                                                },
+                                                child: Text('Add'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      } else if (newValue != null && !interests!.contains(newValue)) {
+                                        _addInterest(newValue);
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () => setState(() => isAddingInterest = false),
+                                        child: Text('Done'),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ],
@@ -4744,8 +4823,166 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ),
     );
   }
+  void _editProfile() {
+    // Controllers for text fields
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController professionController = TextEditingController();
 
+    // Values for dropdowns
+    String? selectedGender;
+    String? selectedAgeGroup;
 
+    // Options for dropdowns
+    final List<String> genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
+    final List<String> ageGroupOptions = ['18-24', '25-34', '35-44', '45-54', '55+'];
+
+    // Track if at least one field is filled
+    bool isAtLeastOneFieldFilled() {
+      return nameController.text.trim().isNotEmpty ||
+          professionController.text.trim().isNotEmpty ||
+          selectedGender != null ||
+          selectedAgeGroup != null;
+    }
+
+    // Variable to control button state
+    bool canSubmit = false;
+
+    // Show the edit profile dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Edit Profile'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(labelText: 'Name'),
+                      onChanged: (value) {
+                        setState(() {
+                          canSubmit = isAtLeastOneFieldFilled();
+                        });
+                      },
+                    ),
+                    SizedBox(height: 16),
+
+                    Text('Gender:'),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      hint: Text('Select Gender'),
+                      value: selectedGender,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedGender = newValue;
+                          canSubmit = isAtLeastOneFieldFilled();
+                        });
+                      },
+                      items: genderOptions.map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 16),
+
+                    Text('Age Group:'),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      hint: Text('Select Age Group'),
+                      value: selectedAgeGroup,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedAgeGroup = newValue;
+                          canSubmit = isAtLeastOneFieldFilled();
+                        });
+                      },
+                      items: ageGroupOptions.map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 16),
+
+                    TextField(
+                      controller: professionController,
+                      decoration: InputDecoration(labelText: 'Profession'),
+                      onChanged: (value) {
+                        setState(() {
+                          canSubmit = isAtLeastOneFieldFilled();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: canSubmit ? () async {
+                    // Create a map with only the fields that were changed
+                    Map<String, dynamic> updatedData = {};
+
+                    if (nameController.text.trim().isNotEmpty) {
+                      name= nameController as String?;
+                      updatedData['Name'] = nameController.text.trim();
+                    }
+
+                    if (professionController.text.trim().isNotEmpty) {
+                      updatedData['Profession'] = professionController.text.trim();
+                    }
+
+                    if (selectedGender != null) {
+                      updatedData['Gender'] = selectedGender;
+                    }
+
+                    if (selectedAgeGroup != null) {
+                      updatedData['Age Group'] = selectedAgeGroup;
+                    }
+
+                    // Update the user document in Firestore
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('Users')
+                          .where('email_Id', isEqualTo: emailId)
+                          .get()
+                          .then((querySnapshot) {
+                        if (querySnapshot.docs.isNotEmpty) {
+                          querySnapshot.docs.first.reference.update(updatedData);
+                        }
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Profile updated successfully!'))
+                      );
+                      Navigator.of(context).pop();
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error updating profile: ${e.toString()}'))
+                      );
+                    }
+                  } : null, // Disable button if no fields are filled
+                  child: Text('Edit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   // Delete account confirmation dialog
   void _showDeleteAccountDialog() {
@@ -4938,6 +5175,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   color: isDarkMode ? Colors.blue[300] : Colors.blue[600],
                 ),
                 onPressed: () {
+                  //// jai shree krishna
+                  _editProfile();
                   // TODO: Implement profile edit functionality
                 },
               ),
