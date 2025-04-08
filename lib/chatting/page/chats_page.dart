@@ -15,6 +15,17 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   String? _currentUserEmail;
 
+  // Sample messages to suggest when chat is empty
+  final List<String> sampleMessages = [
+    "Hello, I noticed we're traveling on the same train.",
+    "Would you be interested in sharing a taxi upon arrival?",
+    "Do you happen to know if this train has pantry service?",
+    "Could I ask you to briefly watch my luggage?",
+    "Excuse me, do you know our expected arrival time?",
+    "Hello, would you mind if I charge my phone here?",
+    "Good day, do you know if WiFi is available onboard?",
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -36,20 +47,51 @@ class _HomeScreenState extends State<HomeScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           title: Text('Send Message to $recipientName',
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800)),
-          content: TextField(
-            controller: messageController,
-            decoration: InputDecoration(
-              labelText: 'Message',
-              labelStyle: TextStyle(color: Colors.blue.shade600),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.blue.shade300),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: messageController,
+                decoration: InputDecoration(
+                  labelText: 'Message',
+                  labelStyle: TextStyle(color: Colors.blue.shade600),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                  ),
+                ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.blue, width: 2),
-              ),
-            ),
+              SizedBox(height: 16),
+              // Show sample messages if the text field is empty
+              if (messageController.text.isEmpty) ...[
+                Text('Suggestions:',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: sampleMessages.map((msg) => GestureDetector(
+                    onTap: () {
+                      messageController.text = msg;
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue.shade100),
+                      ),
+                      child: Text(msg,
+                          style: TextStyle(color: Colors.blue.shade800, fontSize: 13)),
+                    ),
+                  )).toList(),
+                ),
+              ],
+            ],
           ),
           actions: [
             TextButton(
@@ -94,12 +136,11 @@ class _HomeScreenState extends State<HomeScreen> {
       'to_email': recipientEmail,
       'message': message,
       'timestamp': FieldValue.serverTimestamp(),
-      'read': false, // Set initial read status to false
+      'read': false,
     });
   }
 
   void _showMessageDialog() async {
-    // First get current user's journey details
     final currentUserJourney = await firestore.collection('Journey')
         .where('email_id', isEqualTo: _currentUserEmail)
         .limit(1)
@@ -117,7 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final coachNo = journeyData['coach_number'];
     final travelDate = journeyData['travel_date'];
 
-    // Get all users in same journey
     final sameJourneyUsers = await firestore.collection('Journey')
         .where('train_no', isEqualTo: trainNo)
         .where('coach_number', isEqualTo: coachNo)
@@ -131,7 +171,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Extract unique email IDs (excluding current user)
     final userEmails = sameJourneyUsers.docs
         .map((doc) => doc['email_id'] as String)
         .where((email) => email != _currentUserEmail)
@@ -145,7 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Get user details for these emails
     final usersSnapshot = await firestore.collection('Users')
         .where('email_Id', whereIn: userEmails)
         .get();
@@ -225,20 +263,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.blue.shade800)),
-            content: TextField(
-              controller: messageController,
-              decoration: InputDecoration(
-                labelText: 'Message',
-                labelStyle: TextStyle(color: Colors.blue.shade600),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.blue.shade300),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: messageController,
+                  decoration: InputDecoration(
+                    labelText: 'Message',
+                    labelStyle: TextStyle(color: Colors.blue.shade600),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.blue.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    ),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.blue, width: 2),
-                ),
-              ),
+                SizedBox(height: 16),
+                // Show sample messages if the text field is empty
+                if (messageController.text.isEmpty) ...[
+                  Text('Suggestions:',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: sampleMessages.map((msg) => GestureDetector(
+                      onTap: () {
+                        messageController.text = msg;
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.blue.shade100),
+                        ),
+                        child: Text(msg,
+                            style: TextStyle(color: Colors.blue.shade800, fontSize: 13)),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ],
             ),
             actions: [
               TextButton(
@@ -269,74 +338,75 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          elevation: 0,
-          toolbarHeight: 90, // Increased from default
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.blue.shade700, Colors.blue.shade500],
-              ),
+      appBar: AppBar(
+        elevation: 0,
+        toolbarHeight: 90,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.blue.shade700, Colors.blue.shade500],
             ),
           ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Messages',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24, // Increased from 22
-                  letterSpacing: 0.5,
-                  color: Colors.white.withOpacity(0.9),
-                  height: 1.2, // Added line height
-                ),
-              ),
-              SizedBox(height: 4), // Added spacing
-              Text(
-                'Stay connected with travellers',
-                style: TextStyle(
-                  fontSize: 15, // Increased from 13
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white.withOpacity(0.9),
-                  height: 1.3, // Added line height
-                ),
-              ),
-            ],
-          ),
-    actions: [
-        Padding(
-        padding: EdgeInsets.only(right: 16), // Added padding
-      child: IconButton(
-        icon: Container(
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(Icons.edit, size: 22, color: Colors.white), // Increased from 20
         ),
-        onPressed: _showMessageDialog,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Messages',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+                letterSpacing: 0.5,
+                color: Colors.white.withOpacity(0.9),
+                height: 1.2,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Stay connected with travellers',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withOpacity(0.9),
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: IconButton(
+              icon: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.edit, size: 22, color: Colors.white),
+              ),
+              onPressed: _showMessageDialog,
+            ),
+          )
+        ],
       ),
-        )
-    ],
-    ),
       floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 50), // Added padding to lift it up
+        padding: EdgeInsets.only(bottom: 50),
         child: FloatingActionButton(
           onPressed: _showMessageDialog,
           backgroundColor: Colors.blue.shade600,
-          child: Icon(Icons.message, color: Colors.white, size: 28), // Increased icon size
+          child: Icon(Icons.message, color: Colors.white, size: 28),
           elevation: 4,
         ),
       ),
-    backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.grey.shade50,
       body: _currentUserEmail == null
           ? Center(child: CircularProgressIndicator(color: Colors.blue))
           : StreamBuilder(
@@ -387,7 +457,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         builder: (context, userSnapshot) {
                           if (userSnapshot.hasData && userSnapshot.data!.docs.isNotEmpty) {
                             final userName = userSnapshot.data?.docs.first.get('Name');
-                            // Get unread messages count - messages sent to current user that are unread
                             return FutureBuilder(
                               future: firestore.collection('chats')
                                   .where('from_email', isEqualTo: userEmail)
@@ -398,7 +467,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (unreadSnapshot.hasData) {
                                   final unreadCount = unreadSnapshot.data?.docs.length ?? 0;
 
-                                  // Get the last message
                                   return FutureBuilder(
                                       future: firestore.collection('chats')
                                           .where(
@@ -425,7 +493,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                           var doc = lastMessageSnapshot.data!.docs.first;
                                           lastMessage = doc['message'];
 
-                                          // Format timestamp
                                           if (doc['timestamp'] != null) {
                                             final timestamp = doc['timestamp'] as Timestamp;
                                             final now = DateTime.now();
@@ -444,7 +511,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                           }
                                         }
 
-                                        // Improved chat list item
                                         return Card(
                                           margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                           elevation: unreadCount > 0 ? 2 : 0.5,
@@ -461,6 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     userEmail: userEmail,
                                                     userName: userName,
                                                     currentUserEmail: _currentUserEmail!,
+                                                    sampleMessages: sampleMessages,
                                                   ),
                                                 ),
                                               );
@@ -648,7 +715,7 @@ class ChatDetailScreen extends StatefulWidget {
   ChatDetailScreen({
     required this.userEmail,
     required this.userName,
-    required this.currentUserEmail,
+    required this.currentUserEmail, required List<String> sampleMessages,
   });
 
   @override
