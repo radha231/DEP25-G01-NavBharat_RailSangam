@@ -601,7 +601,42 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+class MessageListenerService {
+  StreamSubscription? _messageSubscription;
 
+  void startListening(String currentUserEmail) {
+    _messageSubscription = FirebaseFirestore.instance.collection('chats')
+        .where('to_email', isEqualTo: currentUserEmail)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) async {
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final message = change.doc.data() as Map<String, dynamic>;
+          final senderEmail = message['from_email'];
+
+          final senderDoc = await FirebaseFirestore.instance.collection('Users')
+              .where('email_Id', isEqualTo: senderEmail)
+              .get();
+
+          if (senderDoc.docs.isNotEmpty) {
+            final senderName = senderDoc.docs.first.get('Name');
+
+            NotificationService.showNotification(
+              title: 'New message from $senderName',
+              body: message['message'],
+              payload: senderEmail,
+            );
+          }
+        }
+      }
+    });
+  }
+
+  void stopListening() {
+    _messageSubscription?.cancel();
+  }
+}
 class TrainSocialApp extends StatefulWidget {
   const TrainSocialApp({super.key});
 
@@ -611,10 +646,23 @@ class TrainSocialApp extends StatefulWidget {
 
 class _TrainSocialAppState extends State<TrainSocialApp> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final MessageListenerService _listenerService = MessageListenerService();
   @override
   void initState() {
     super.initState();
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && user.email != null) {
+        _listenerService.startListening(user.email!);
+      } else {
+        _listenerService.stopListening();
+      }
+    });
     initNotifications();
+  }
+  @override
+  void dispose() {
+    _listenerService.stopListening();
+    super.dispose();
   }
 
   // Future<void> updateUserDocuments() async {
