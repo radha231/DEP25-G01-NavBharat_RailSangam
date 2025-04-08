@@ -1,6 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class NotificationService {
+  static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  static void initialize() {
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    );
+
+    _notificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse notificationResponse) {
+        // You can handle notification taps here
+      },
+    );
+  }
+
+  static Future<void> showNotification({
+    required String title,
+    required String body,
+    required String payload,
+  }) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'chat_channel_id',
+      'Chat Notifications',
+      channelDescription: 'Notifications for new chat messages',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    await _notificationsPlugin.show(
+      DateTime.now().millisecond,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: payload,
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   final String? selectedUserEmail;
@@ -17,25 +69,68 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Sample messages to suggest when chat is empty
   final List<String> sampleMessages = [
-    "Hello, I noticed we're traveling on the same train.",
-    "Would you be interested in sharing a taxi upon arrival?",
-    "Do you happen to know if this train has pantry service?",
+    "Hi",
+    "How are you doing?",
+    // "Hello, I noticed we're traveling on the same train.",
+    // "Would you be interested in sharing a taxi upon arrival?",
+    // "Do you happen to know if this train has pantry service?",
     "Could I ask you to briefly watch my luggage?",
-    "Excuse me, do you know our expected arrival time?",
-    "Hello, would you mind if I charge my phone here?",
-    "Good day, do you know if WiFi is available onboard?",
+    // "Excuse me, do you know our expected arrival time?",
+    // "Hello, would you mind if I charge my phone here?",
+    // "Good day, do you know if WiFi is available onboard?",
   ];
+
+  late StreamSubscription<QuerySnapshot> _messageSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchCurrentUserEmail();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.selectedUserEmail != null && widget.selectedUserName != null) {
         _showMessageDialogRedirectedFromTravelersPage(widget.selectedUserEmail!, widget.selectedUserName!);
       }
     });
+
+    // Setup notification listener for new messages
+  }
+
+  void _setupMessageListener() {
+    _messageSubscription = firestore.collection('chats')
+        .where('to_email', isEqualTo: _currentUserEmail)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) async {
+      for (var change in snapshot.docChanges) {
+        // Only process newly added documents
+        if (change.type == DocumentChangeType.added) {
+          final message = change.doc.data() as Map<String, dynamic>;
+          final senderEmail = message['from_email'];
+
+          // Get sender's name
+          final senderDoc = await firestore.collection('Users')
+              .where('email_Id', isEqualTo: senderEmail)
+              .get();
+
+          if (senderDoc.docs.isNotEmpty) {
+            final senderName = senderDoc.docs.first.get('Name');
+
+            // Show notification
+            NotificationService.showNotification(
+              title: 'New message from $senderName',
+              body: message['message'],
+              payload: senderEmail,
+            );
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription.cancel();
+    super.dispose();
   }
 
   void _showMessageDialogRedirectedFromTravelersPage(String recipientEmail, String recipientName) async {
@@ -128,6 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _currentUserEmail = prefs.getString('user_email');
     });
+    // _setupMessageListener();
   }
 
   Future<void> _sendMessage(String recipientEmail, String message) async {
@@ -138,6 +234,26 @@ class _HomeScreenState extends State<HomeScreen> {
       'timestamp': FieldValue.serverTimestamp(),
       'read': false,
     });
+
+    // Get recipient's name for notification
+    final recipientDoc = await firestore.collection('Users')
+        .where('email_Id', isEqualTo: recipientEmail)
+        .get();
+
+    if (recipientDoc.docs.isNotEmpty) {
+      final recipientName = recipientDoc.docs.first.get('Name');
+
+      // Get current user's name
+      final currentUserDoc = await firestore.collection('Users')
+          .where('email_Id', isEqualTo: _currentUserEmail)
+          .get();
+
+      if (currentUserDoc.docs.isNotEmpty) {
+        final currentUserName = currentUserDoc.docs.first.get('Name');
+
+        // Show notification for recipient (will show when they receive the message)
+      }
+    }
   }
 
   void _showMessageDialog() async {
@@ -758,6 +874,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       'read': false,
     });
     _messageController.clear();
+
+    // Get current user's name for notification
+    final currentUserDoc = await firestore.collection('Users')
+        .where('email_Id', isEqualTo: widget.currentUserEmail)
+        .get();
+
+    if (currentUserDoc.docs.isNotEmpty) {
+      final currentUserName = currentUserDoc.docs.first.get('Name');
+
+      // Show notification for recipient
+      // NotificationService.showNotification(
+      //   title: 'New message from $currentUserName',
+      //   body: message,
+      //   payload: widget.userEmail,
+      // );
+    }
 
     // Scroll to bottom after sending message
     WidgetsBinding.instance.addPostFrameCallback((_) {
