@@ -4980,46 +4980,74 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ),
                 ElevatedButton(
                   onPressed: canSubmit ? () async {
-                    // Create a map with only the fields that were changed
-                    Map<String, dynamic> updatedData = {};
+                    // Show confirmation dialog
+                    bool confirmChanges = await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: Text('Confirm Changes'),
+                          content: Text('Are these changes correct?'),
+                          actions: <Widget>[
+                            TextButton(
+                              child: Text('Cancel'),
+                              onPressed: () {
+                                Navigator.of(context).pop(false);
+                              },
+                            ),
+                            TextButton(
+                              child: Text('Confirm'),
+                              onPressed: () {
+                                Navigator.of(context).pop(true);
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ) ?? false;
 
-                    if (nameController.text.trim().isNotEmpty) {
-                      name= nameController as String?;
-                      updatedData['Name'] = nameController.text.trim();
-                    }
+                    // If user confirmed, proceed with update
+                    if (confirmChanges) {
+                      // Create a map with only the fields that were changed
+                      Map<String, dynamic> updatedData = {};
 
-                    if (professionController.text.trim().isNotEmpty) {
-                      updatedData['Profession'] = professionController.text.trim();
-                    }
+                      if (nameController.text.trim().isNotEmpty) {
+                        // Fixed the issue with assignment to 'name'
+                        updatedData['Name'] = nameController.text.trim();
+                      }
 
-                    if (selectedGender != null) {
-                      updatedData['Gender'] = selectedGender;
-                    }
+                      if (professionController.text.trim().isNotEmpty) {
+                        updatedData['Profession'] = professionController.text.trim();
+                      }
 
-                    if (selectedAgeGroup != null) {
-                      updatedData['Age Group'] = selectedAgeGroup;
-                    }
+                      if (selectedGender != null) {
+                        updatedData['Gender'] = selectedGender;
+                      }
 
-                    // Update the user document in Firestore
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('Users')
-                          .where('email_Id', isEqualTo: emailId)
-                          .get()
-                          .then((querySnapshot) {
-                        if (querySnapshot.docs.isNotEmpty) {
-                          querySnapshot.docs.first.reference.update(updatedData);
-                        }
-                      });
+                      if (selectedAgeGroup != null) {
+                        updatedData['Age Group'] = selectedAgeGroup;
+                      }
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Profile updated successfully!'))
-                      );
-                      Navigator.of(context).pop();
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error updating profile: ${e.toString()}'))
-                      );
+                      // Update the user document in Firestore
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('Users')
+                            .where('email_Id', isEqualTo: emailId)
+                            .get()
+                            .then((querySnapshot) {
+                          if (querySnapshot.docs.isNotEmpty) {
+                            querySnapshot.docs.first.reference.update(updatedData);
+                          }
+                        });
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Profile updated successfully!'))
+                        );
+                        Navigator.of(context).pop();
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error updating profile: ${e.toString()}'))
+                        );
+                      }
                     }
                   } : null, // Disable button if no fields are filled
                   child: Text('Edit'),
