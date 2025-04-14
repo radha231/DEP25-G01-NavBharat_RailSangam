@@ -367,6 +367,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         SizedBox(height: 16),
 
                         // Interests Section
+                        // Interests Section
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
@@ -375,75 +376,36 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         SizedBox(height: 8),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                hint: Text('Select an interest'),
-                                value: null,
-                                items: [
-                                  'Reading',
-                                  'Cooking',
-                                  'Fitness',
-                                  'Photography',
-                                  'Travel',
-                                  'Music',
-                                  'Gaming',
-                                  'Art',
-                                  'Technology',
-                                  'Outdoor Activities',
-                                  'Other'
-                                ].map((String interest) {
-                                  return DropdownMenuItem<String>(
-                                    value: interest,
-                                    child: Text(interest),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  if (newValue == 'Other') {
-                                    // Show dialog to enter custom interest
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: Text('Add custom interest'),
-                                        content: TextField(
-                                          controller: interestController,
-                                          decoration: InputDecoration(hintText: 'Enter your interest'),
-                                          autofocus: true,
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context),
-                                            child: Text('Cancel'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              if (interestController.text.trim().isNotEmpty) {
-                                                setState(() {
-                                                  userInterests.add(interestController.text.trim());
-                                                  interestController.clear();
-                                                });
-                                              }
-                                              Navigator.pop(context);
-                                            },
-                                            child: Text('Add'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  } else if (newValue != null && !userInterests.contains(newValue)) {
-                                    setState(() {
-                                      userInterests.add(newValue);
-                                    });
+                            'Reading',
+                            'Cooking',
+                            'Fitness',
+                            'Photography',
+                            'Travel',
+                            'Music',
+                            'Gaming',
+                            'Art',
+                            'Technology',
+                            'Outdoor Activities',
+                            'Other',
+                          ].map((interest) {
+                            return FilterChip(
+                              label: Text(interest),
+                              selected: userInterests.contains(interest),
+                              onSelected: (isSelected) {
+                                setState(() {
+                                  if (isSelected) {
+                                    userInterests.add(interest);
+                                  } else {
+                                    userInterests.remove(interest);
                                   }
-                                },
-                              ),
-                            ),
-                          ],
+                                });
+                              },
+                            );
+                          }).toList(),
                         ),
                         SizedBox(height: 8),
 
