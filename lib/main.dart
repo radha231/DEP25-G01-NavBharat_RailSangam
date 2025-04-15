@@ -169,6 +169,11 @@ class _LoginPageState extends State<LoginPage> {
   String? travelDate;
   DateTime? expiryDate;
 
+  // Added for station selection
+  String? selectedFromStation;
+  String? selectedToStation;
+  List<String> availableToStations = [];
+
   @override
   void initState() {
     super.initState();
@@ -223,6 +228,8 @@ class _LoginPageState extends State<LoginPage> {
                 // Get train details for navigation
                 final trainNo = journeyData['train_no'] as String;
                 final coachNumber = journeyData['coach_number'] as String;
+                final fromStation = journeyData['from_station'] as String?;
+                final toStation = journeyData['to_station'] as String?;
 
                 // Fetch train details
                 final trainSnapshot = await FirebaseFirestore.instance
@@ -271,6 +278,8 @@ class _LoginPageState extends State<LoginPage> {
                           travelDate: journeyDate,
                           selectedCoach: coachNumber,
                           trainNo: trainNo,
+                          fromStation: fromStation,
+                          toStation: toStation,
                         ),
                       ),
                     );
@@ -293,6 +302,30 @@ class _LoginPageState extends State<LoginPage> {
       print('Error checking existing journey: $e');
       setState(() {
         isLoading = false;
+      });
+    }
+  }
+
+  // Update To station options based on From station selection
+  void updateToStationOptions() {
+    if (selectedFromStation != null && selectedTrain != null) {
+      final fromIndex = selectedTrain!.stations.indexOf(selectedFromStation!);
+      if (fromIndex != -1 && fromIndex < selectedTrain!.stations.length - 1) {
+        // Get all stations that come after the selected From station
+        setState(() {
+          availableToStations = selectedTrain!.stations.sublist(fromIndex + 1);
+          selectedToStation = null; // Reset the To station when From changes
+        });
+      } else {
+        setState(() {
+          availableToStations = [];
+          selectedToStation = null;
+        });
+      }
+    } else {
+      setState(() {
+        availableToStations = [];
+        selectedToStation = null;
       });
     }
   }
@@ -407,9 +440,7 @@ class _LoginPageState extends State<LoginPage> {
                                 // print('coaches:::');
                                 // print(coaches);
                                 setState(() {
-
                                   selectedTrain = Train(
-
                                     name: data['Train Name'] ?? 'Unnamed Train',
                                     train_no: data['Train no'] ?? 'Unknown Train Number',
                                     stations: stations,
@@ -418,6 +449,11 @@ class _LoginPageState extends State<LoginPage> {
                                   );
                                   isLoading = false;
                                   showCoachDropdown = true;
+
+                                  // Reset station selections
+                                  selectedFromStation = null;
+                                  selectedToStation = null;
+                                  availableToStations = [];
                                 });
                               } else {
                                 setState(() {
@@ -454,6 +490,59 @@ class _LoginPageState extends State<LoginPage> {
                           padding: const EdgeInsets.only(top: 16),
                           child: Column(
                             children: [
+                              // From Station Dropdown
+                              DropdownButtonFormField<String>(
+                                decoration: InputDecoration(
+                                  labelText: 'From Station',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: Icon(Icons.train),
+                                ),
+                                items: selectedTrain!.stations
+                                    .map((station) => DropdownMenuItem(
+                                  value: station,
+                                  child: Text(station),
+                                ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedFromStation = value;
+                                  });
+                                  updateToStationOptions();
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // To Station Dropdown
+                              DropdownButtonFormField<String>(
+                                decoration: InputDecoration(
+                                  labelText: 'To Station',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  prefixIcon: Icon(Icons.location_on),
+                                ),
+                                items: availableToStations
+                                    .map((station) => DropdownMenuItem(
+                                  value: station,
+                                  child: Text(station),
+                                ))
+                                    .toList(),
+                                onChanged: selectedFromStation == null
+                                    ? null
+                                    : (value) {
+                                  setState(() {
+                                    selectedToStation = value;
+                                  });
+                                },
+                                hint: Text(selectedFromStation == null
+                                    ? 'Select From station first'
+                                    : 'Select destination station'),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Coach Selection
                               DropdownButtonFormField<String>(
                                 decoration: InputDecoration(
                                   labelText: 'Select Your Coach',
@@ -474,6 +563,8 @@ class _LoginPageState extends State<LoginPage> {
                                 },
                               ),
                               const SizedBox(height: 16),
+
+                              // Travel Date Selection
                               TextField(
                                 controller: TextEditingController(text: travelDate),
                                 readOnly: true,
@@ -506,17 +597,21 @@ class _LoginPageState extends State<LoginPage> {
                                             23, 59, 59, 999
                                         );
                                       }
-
                                     });
                                   }
                                 },
                               ),
                               const SizedBox(height: 16),
+
+                              // Start Journey Button
                               SizedBox(
                                 width: double.infinity,
                                 height: 56,
                                 child: ElevatedButton(
-                                  onPressed: (selectedCoach == null || (travelDate?.isEmpty ?? true))
+                                  onPressed: (selectedCoach == null ||
+                                      (travelDate?.isEmpty ?? true) ||
+                                      selectedFromStation == null ||
+                                      selectedToStation == null)
                                       ? null
                                       : () async {
                                     // Get Firestore instance
@@ -536,6 +631,8 @@ class _LoginPageState extends State<LoginPage> {
                                       'email_id': emailId,
                                       'travel_date': travelDate,
                                       'coach_number': selectedCoach,
+                                      'from_station': selectedFromStation,
+                                      'to_station': selectedToStation,
                                       'timestamp': FieldValue.serverTimestamp(),
                                       'expiryDate': Timestamp.fromDate(expiryDate!), // Firestore timestamp
                                     }).then((_) {
@@ -555,6 +652,8 @@ class _LoginPageState extends State<LoginPage> {
                                             travelDate: travelDate!,
                                             selectedCoach: selectedCoach!,
                                             trainNo: trainNumberInput,
+                                            fromStation: selectedFromStation,
+                                            toStation: selectedToStation,
                                           ),
                                         ),
                                       );
@@ -770,10 +869,13 @@ class HomePage extends StatefulWidget {
   final String travelDate;
   final String selectedCoach;
   final String trainNo;
-  const HomePage({required this.selectedTrain,required this.emailId,required this.travelDate,required this.selectedCoach,required this.trainNo, super.key});
+  final String? fromStation;
+  final String? toStation;
+
+  const HomePage({required this.selectedTrain,required this.emailId,required this.travelDate,required this.selectedCoach,required this.trainNo, required this.fromStation, required this.toStation, super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState(emailId: this.emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo);
+  State<HomePage> createState() => _HomePageState(emailId: this.emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo, fromStation:fromStation, toStation: toStation );
 }
 
 class _HomePageState extends State<HomePage> {
@@ -781,7 +883,9 @@ class _HomePageState extends State<HomePage> {
   final String travelDate;
   final String selectedCoach;
   final String trainNo;
-  _HomePageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
+  final String? fromStation;
+  final String? toStation;
+  _HomePageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo, required this.fromStation, required this.toStation});
   int _selectedIndex = 0;
   late List<Widget> _pages;
   Timer? _locationTimer;
@@ -792,8 +896,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _pages = [
-      TravelersPage(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo,),
-      LocationInfoPage(selectedTrain: widget.selectedTrain),
+      TravelersPage(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo, fromStation: fromStation, toStation: toStation),
+      LocationInfoPage(selectedTrain: widget.selectedTrain, fromStation: fromStation, toStation: toStation),
       HomeScreen(),
       ProfilePage(emailId : this.emailId),
     ];
@@ -807,6 +911,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   void startLocationTracking() {
+    /////////////////////////////////
+    int fromIndex = -1;
+    for (int i = 0; i < widget.selectedTrain.stations.length; i++) {
+      if (widget.selectedTrain.stations[i] == fromStation) {
+        fromIndex = i;
+        break;
+      }
+    }
+    print("Fromindex::");
+    print(fromIndex);
+    // If found, remove all stations before it
+    if (fromIndex != -1) {
+      for (int i = 0; i < fromIndex; i++) {
+        widget.selectedTrain.stations.removeAt(0); // Always remove the first element
+      }
+    }
     _locationTimer = Timer.periodic(const Duration(minutes: 1), (timer) async {
       final position = await LocationService.getCurrentLocation();
       if (position != null) {
@@ -954,8 +1074,9 @@ class _HomePageState extends State<HomePage> {
 // Update LocationInfoPage to show selected train information
 class LocationInfoPage extends StatefulWidget {
   final Train selectedTrain;
-
-  const LocationInfoPage({required this.selectedTrain, super.key});
+  final String? fromStation;
+  final String? toStation;
+  const LocationInfoPage({required this.selectedTrain, super.key, required this.fromStation, required this.toStation});
 
   @override
   State<LocationInfoPage> createState() => _LocationInfoPageState();
@@ -1377,10 +1498,12 @@ class TravelersPage extends StatefulWidget {
   final String travelDate;
   final String selectedCoach;
   final String trainNo;
-  const TravelersPage({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo,super.key});
+  final String? fromStation;
+  final String? toStation;
+  const TravelersPage({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo,super.key, required this.fromStation, required this.toStation});
 
   @override
-  _TravelersPageState createState() => _TravelersPageState(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo);
+  _TravelersPageState createState() => _TravelersPageState(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo, fromStation:fromStation, toStation: toStation);
 }
 
 class _TravelersPageState extends State<TravelersPage> {
@@ -1389,7 +1512,9 @@ class _TravelersPageState extends State<TravelersPage> {
   final String travelDate;
   final String selectedCoach;
   final String trainNo;
-  _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
+  final String? fromStation;
+  final String? toStation;
+  _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo, required this.fromStation, required this.toStation});
   // User's own data
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -3224,592 +3349,6 @@ class _TravelersPageState extends State<TravelersPage> {
   }
 }
 
-
-
-// class HistoryCard extends StatelessWidget {
-//   const HistoryCard({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Card(
-//       child: Padding(
-//         padding: const EdgeInsets.all(16),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Row(
-//               children: [
-//                 Icon(Icons.history, color: Colors.blue[900]),
-//                 const SizedBox(width: 8),
-//                 Text(
-//                   'Historical Significance',
-//                   style: Theme.of(context).textTheme.titleLarge,
-//                 ),
-//               ],
-//             ),
-//             const SizedBox(height: 16),
-//             Text(
-//               'AI-generated historical information will appear here...',
-//               style: Theme.of(context).textTheme.bodyLarge,
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-
-
-
-// class ChatListPage extends StatefulWidget {
-//   const ChatListPage({super.key});
-//
-//   @override
-//   _ChatListPageState createState() => _ChatListPageState();
-// }
-
-// class _ChatListPageState extends State<ChatListPage> {
-//   // Story data (same as previous implementation)
-//   final List<Map<String, dynamic>> stories = [
-//     {
-//       'type': 'add',
-//       'name': 'Add Story',
-//       'avatar': null,
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Yoga',
-//       'avatar': 'https://randomuser.me/api/portraits/men/50.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Dono',
-//       'avatar': 'https://randomuser.me/api/portraits/men/51.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Doni',
-//       'avatar': 'https://randomuser.me/api/portraits/men/52.jpg',
-//     },
-//     {
-//       'type': 'user',
-//       'name': 'Random',
-//       'avatar': 'https://randomuser.me/api/portraits/men/53.jpg',
-//     },
-//   ];
-//
-//   // Chat data
-//   final List<Map<String, dynamic>> chats = [
-//     {
-//       'name': 'Rehan Wangsaff',
-//       'avatar': 'https://randomuser.me/api/portraits/men/1.jpg',
-//       'lastMessage': 'Ur Welcome!',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//     {
-//       'name': 'Peter Parker',
-//       'avatar': 'https://randomuser.me/api/portraits/men/2.jpg',
-//       'lastMessage': 'Can You Come Here Today?',
-//       'time': '00.21',
-//       'unread': true,
-//     },
-//     {
-//       'name': 'Bebeb',
-//       'avatar': 'https://randomuser.me/api/portraits/women/1.jpg',
-//       'lastMessage': 'What You Doing?',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//     {
-//       'name': 'Yoga',
-//       'avatar': 'https://randomuser.me/api/portraits/men/3.jpg',
-//       'lastMessage': 'Sokin Sin Ngab',
-//       'time': '00.21',
-//       'unread': false,
-//     },
-//   ];
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.transparent, // Make background transparent
-//       body: Stack(
-//         children: [
-//           // Dimmed background (optional)
-//           Positioned.fill(
-//             child: Container(
-//               color: Colors.black.withOpacity(0.7),
-//             ),
-//           ),
-//
-//           // Main Chat UI
-//           Positioned(
-//             bottom: 0,
-//             left: 0,
-//             right: 0,
-//             child: Container(
-//               decoration: BoxDecoration(
-//                 color: Colors.black,
-//                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-//               ),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   // App Bar
-//                   Padding(
-//                     padding: const EdgeInsets.symmetric(
-//                         horizontal: 16.0,
-//                         vertical: 10
-//                     ),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           'Welcome Oji 👋',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontWeight: FontWeight.bold,
-//                             fontSize: 18,
-//                           ),
-//                         ),
-//                         IconButton(
-//                           icon: Icon(Icons.notifications_outlined, color: Colors.white),
-//                           onPressed: () {
-//                             // Notification functionality
-//                           },
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//
-//                   // Story Section
-//                   Padding(
-//                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-//                     child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           'Story',
-//                           style: TextStyle(
-//                             color: Colors.white,
-//                             fontWeight: FontWeight.bold,
-//                             fontSize: 18,
-//                           ),
-//                         ),
-//                         Text(
-//                           'See All',
-//                           style: TextStyle(
-//                             color: Colors.white54,
-//                             fontSize: 14,
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//
-//                   // Story Horizontal Scroll
-//                   SingleChildScrollView(
-//                     scrollDirection: Axis.horizontal,
-//                     padding: EdgeInsets.symmetric(horizontal: 16),
-//                     child: Row(
-//                       children: stories.map((story) {
-//                         return Padding(
-//                           padding: const EdgeInsets.only(right: 10),
-//                           child: Column(
-//                             children: [
-//                               Container(
-//                                 width: 60,
-//                                 height: 60,
-//                                 decoration: BoxDecoration(
-//                                   shape: BoxShape.circle,
-//                                   color: story['type'] == 'add'
-//                                       ? Colors.grey[800]
-//                                       : Colors.white,
-//                                   border: Border.all(
-//                                     color: story['type'] == 'add'
-//                                         ? Colors.transparent
-//                                         : Colors.white,
-//                                     width: 2,
-//                                   ),
-//                                 ),
-//                                 child: story['type'] == 'add'
-//                                     ? Icon(Icons.add, color: Colors.white, size: 30)
-//                                     : CircleAvatar(
-//                                   backgroundImage: NetworkImage(story['avatar']),
-//                                 ),
-//                               ),
-//                               SizedBox(height: 5),
-//                               Text(
-//                                 story['name'],
-//                                 style: TextStyle(
-//                                   color: Colors.white,
-//                                   fontSize: 12,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         );
-//                       }).toList(),
-//                     ),
-//                   ),
-//
-//                   // Chat Section
-//                   Container(
-//                     margin: EdgeInsets.only(top: 20),
-//                     height: MediaQuery.of(context).size.height * 0.5, // Half screen height
-//                     decoration: BoxDecoration(
-//                       color: Colors.white,
-//                       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-//                     ),
-//                     child: Column(
-//                       children: [
-//                         Padding(
-//                           padding: const EdgeInsets.symmetric(
-//                             horizontal: 16.0,
-//                             vertical: 16,
-//                           ),
-//                           child: Row(
-//                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                             children: [
-//                               Text(
-//                                 'Recent Chat',
-//                                 style: TextStyle(
-//                                   color: Colors.black,
-//                                   fontWeight: FontWeight.bold,
-//                                   fontSize: 18,
-//                                 ),
-//                               ),
-//                               TextButton.icon(
-//                                 onPressed: () {
-//                                   // Archive chat functionality
-//                                 },
-//                                 icon: Icon(Icons.archive_outlined, color: Colors.black),
-//                                 label: Text(
-//                                   'Archive Chat',
-//                                   style: TextStyle(color: Colors.black),
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                         Expanded(
-//                           child: ListView.builder(
-//                             itemCount: chats.length,
-//                             itemBuilder: (context, index) {
-//                               final chat = chats[index];
-//                               return ListTile(
-//                                 leading: CircleAvatar(
-//                                   backgroundImage: NetworkImage(chat['avatar']),
-//                                   backgroundColor: Colors.grey[200],
-//                                 ),
-//                                 title: Text(
-//                                   chat['name'],
-//                                   style: TextStyle(
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 subtitle: Text(
-//                                   chat['lastMessage'],
-//                                   style: TextStyle(
-//                                     color: Colors.grey,
-//                                   ),
-//                                 ),
-//                                 trailing: Column(
-//                                   mainAxisAlignment: MainAxisAlignment.center,
-//                                   crossAxisAlignment: CrossAxisAlignment.end,
-//                                   children: [
-//                                     Text(
-//                                       chat['time'],
-//                                       style: TextStyle(
-//                                         color: Colors.grey,
-//                                         fontSize: 12,
-//                                       ),
-//                                     ),
-//                                     if (chat['unread'])
-//                                       Container(
-//                                         margin: EdgeInsets.only(top: 4),
-//                                         width: 10,
-//                                         height: 10,
-//                                         decoration: BoxDecoration(
-//                                           color: Colors.blue,
-//                                           shape: BoxShape.circle,
-//                                         ),
-//                                       ),
-//                                   ],
-//                                 ),
-//                                 onTap: () {
-//                                   // Navigate to chat detail
-//                                 },
-//                               );
-//                             },
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           // Close Button
-//           Positioned(
-//             top: 40,
-//             right: 16,
-//             child: IconButton(
-//               icon: Icon(Icons.close, color: Colors.white, size: 30),
-//               onPressed: () {
-//                 Navigator.pop(context);
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-// class ChatDetailPage extends StatefulWidget {
-//   final String name;
-//   final String avatar;
-//
-//   const ChatDetailPage({
-//     super.key,
-//     required this.name,
-//     required this.avatar,
-//   });
-//
-//   @override
-//   _ChatDetailPageState createState() => _ChatDetailPageState();
-// }
-
-// class _ChatDetailPageState extends State<ChatDetailPage> {
-//   final List<Map<String, dynamic>> messages = [
-//     {
-//       'text': 'Hi, I\'m heading to the mall this afternoon',
-//       'isMe': false,
-//       'time': '01.12',
-//     },
-//     {
-//       'text': 'Do you wanna join with me?',
-//       'isMe': false,
-//       'time': '01.12',
-//     },
-//     {
-//       'text': 'its look awesome!',
-//       'isMe': true,
-//       'time': '01.23',
-//     },
-//     {
-//       'text': 'But can I bring my girlfriend? They want to go to the mall',
-//       'isMe': true,
-//       'time': '01.23',
-//     },
-//     {
-//       'text': 'of course, just him',
-//       'isMe': false,
-//       'time': '01.34',
-//     },
-//     {
-//       'text': 'Thanks Rehan',
-//       'isMe': true,
-//       'time': '01.35',
-//     },
-//     {
-//       'text': 'Ur Welcome!',
-//       'isMe': false,
-//       'time': '01.38',
-//     },
-//   ];
-//
-//   final TextEditingController _messageController = TextEditingController();
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       appBar: AppBar(
-//         backgroundColor: Colors.transparent,
-//         elevation: 0,
-//         leading: IconButton(
-//           icon: Icon(Icons.arrow_back, color: Colors.black),
-//           onPressed: () => Navigator.pop(context),
-//         ),
-//         title: Row(
-//           children: [
-//             CircleAvatar(
-//               backgroundImage: NetworkImage(widget.avatar),
-//               radius: 20,
-//             ),
-//             SizedBox(width: 10),
-//             Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   widget.name,
-//                   style: TextStyle(
-//                     color: Colors.black,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//                 Text(
-//                   'Online',
-//                   style: TextStyle(
-//                     color: Colors.green,
-//                     fontSize: 12,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//         actions: [
-//           IconButton(
-//             icon: Icon(Icons.more_vert, color: Colors.black),
-//             onPressed: () {
-//               // More options functionality
-//             },
-//           ),
-//         ],
-//       ),
-//       body: Column(
-//         children: [
-//           Padding(
-//             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-//             child: Row(
-//               mainAxisAlignment: MainAxisAlignment.center,
-//               children: [
-//                 Container(
-//                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-//                   decoration: BoxDecoration(
-//                     color: Colors.grey[200],
-//                     borderRadius: BorderRadius.circular(20),
-//                   ),
-//                   child: Text(
-//                     'Today',
-//                     style: TextStyle(
-//                       color: Colors.grey,
-//                       fontSize: 12,
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//           Expanded(
-//             child: ListView.builder(
-//               reverse: true,
-//               padding: EdgeInsets.all(16),
-//               itemCount: messages.length,
-//               itemBuilder: (context, index) {
-//                 final message = messages[messages.length - 1 - index];
-//                 return Align(
-//                   alignment: message['isMe']
-//                       ? Alignment.centerRight
-//                       : Alignment.centerLeft,
-//                   child: Container(
-//                     margin: EdgeInsets.symmetric(vertical: 5),
-//                     padding: EdgeInsets.symmetric(
-//                       horizontal: 16,
-//                       vertical: 10,
-//                     ),
-//                     decoration: BoxDecoration(
-//                       color: message['isMe']
-//                           ? Colors.blue[100]
-//                           : Colors.grey[200],
-//                       borderRadius: BorderRadius.circular(20).copyWith(
-//                         bottomRight: message['isMe']
-//                             ? Radius.zero
-//                             : Radius.circular(20),
-//                         bottomLeft: message['isMe']
-//                             ? Radius.circular(20)
-//                             : Radius.zero,
-//                       ),
-//                     ),
-//                     child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.end,
-//                       children: [
-//                         Text(
-//                           message['text'],
-//                           style: TextStyle(
-//                             color: message['isMe']
-//                                 ? Colors.blue[900]
-//                                 : Colors.black,
-//                           ),
-//                         ),
-//                         SizedBox(height: 4),
-//                         Text(
-//                           message['time'],
-//                           style: TextStyle(
-//                             fontSize: 10,
-//                             color: message['isMe']
-//                                 ? Colors.blue[700]
-//                                 : Colors.grey[600],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 );
-//               },
-//             ),
-//           ),
-//           // Message Input Area
-//           Container(
-//             padding: EdgeInsets.all(16),
-//             decoration: BoxDecoration(
-//               color: Colors.white,
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: Colors.grey.withOpacity(0.2),
-//                   spreadRadius: 1,
-//                   blurRadius: 5,
-//                 ),
-//               ],
-//             ),
-//             child: Row(
-//               children: [
-//                 IconButton(
-//                   icon: Icon(Icons.mic, color: Colors.blue),
-//                   onPressed: () {
-//                     // Voice message functionality
-//                   },
-//                 ),
-//                 Expanded(
-//                   child: TextField(
-//                     controller: _messageController,
-//                     decoration: InputDecoration(
-//                       hintText: 'Message...',
-//                       border: InputBorder.none,
-//                       contentPadding: EdgeInsets.symmetric(horizontal: 10),
-//                     ),
-//                   ),
-//                 ),
-//                 IconButton(
-//                   icon: Icon(Icons.send, color: Colors.blue),
-//                   onPressed: () {
-//                     // Send message functionality
-//                     if (_messageController.text.isNotEmpty) {
-//                       setState(() {
-//                         messages.insert(0, {
-//                           'text': _messageController.text,
-//                           'isMe': true,
-//                           'time': DateTime.now().toString().substring(11, 16),
-//                         });
-//                         _messageController.clear();
-//                       });
-//                     }
-//                   },
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
 
 class ProfilePage extends StatefulWidget {
   final String emailId;
