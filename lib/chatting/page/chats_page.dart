@@ -69,12 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Sample messages to suggest when chat is empty
   final List<String> sampleMessages = [
-    "Hi",
-    "How are you doing?",
+    // "Hi",
+    "Hi there! Which station did you board from?",
+    "Is this your first time on this train route?",
     // "Hello, I noticed we're traveling on the same train.",
     // "Would you be interested in sharing a taxi upon arrival?",
     // "Do you happen to know if this train has pantry service?",
-    "Could I ask you to briefly watch my luggage?",
+    "Any idea how long we’ll stop at the next station?",
+    "Traveling for work or just exploring?"
     // "Excuse me, do you know our expected arrival time?",
     // "Hello, would you mind if I charge my phone here?",
     // "Good day, do you know if WiFi is available onboard?",
@@ -325,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (userOptions.isEmpty)
             Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No travelers found in your coach'),
+              child: Text('No travellers found in your coach'),
             )
           else
             ...userOptions.map((user) => SimpleDialogOption(
@@ -955,13 +957,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
+                // Text(
+                //   'Online',
+                //   style: TextStyle(
+                //     fontSize: 12,
+                //     color: Colors.white.withOpacity(0.9),
+                //   ),
+                // ),
               ],
             ),
           ],
