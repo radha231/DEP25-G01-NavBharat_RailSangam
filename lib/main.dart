@@ -4058,82 +4058,12 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
 
-                        // About section
-                        // Container(
-                        //   width: double.infinity,
-                        //
-                        //   padding: const EdgeInsets.all(16),
-                        //   margin: const EdgeInsets.only(bottom: 16),
-                        //   decoration: BoxDecoration(
-                        //     color: Colors.blue.shade100,
-                        //     borderRadius: BorderRadius.circular(12),
-                        //     border: Border.all(color: Colors.grey.shade200),
-                        //   ),
-                        //   child: Column(
-                        //     crossAxisAlignment: CrossAxisAlignment.start,
-                        //     children: [
-                        //       Row(
-                        //         crossAxisAlignment: CrossAxisAlignment.start,
-                        //         children: [
-                        //           const Text(
-                        //             'About',
-                        //             style: TextStyle(
-                        //               fontSize: 18,
-                        //
-                        //               fontWeight: FontWeight.bold,
-                        //             ),
-                        //           ),
-                        //           const Spacer(),
-                        //           if (!isEditingAbout)
-                        //             IconButton(
-                        //               icon: const Icon(Icons.edit, size: 18),
-                        //               onPressed: () => setState(() => isEditingAbout = true),
-                        //             ),
-                        //         ],
-                        //       ),
-                        //       const SizedBox(height: 8),
-                        //       isEditingAbout
-                        //           ? Column(
-                        //         children: [
-                        //           TextField(
-                        //             controller: aboutController,
-                        //             maxLines: 3,
-                        //             decoration: const InputDecoration(
-                        //               border: OutlineInputBorder(),
-                        //               hintText: 'Tell something about yourself',
-                        //             ),
-                        //           ),
-                        //           const SizedBox(height: 10),
-                        //           Row(
-                        //             mainAxisAlignment: MainAxisAlignment.end,
-                        //             children: [
-                        //               TextButton(
-                        //                 onPressed: () => setState(() {
-                        //                   isEditingAbout = false;
-                        //                   aboutController.text = about;
-                        //                 }),
-                        //                 child: const Text('Cancel'),
-                        //               ),
-                        //               const SizedBox(width: 10),
-                        //               ElevatedButton(
-                        //                 onPressed: _updateAbout,
-                        //                 child: const Text('Save'),
-                        //               ),
-                        //             ],
-                        //           ),
-                        //         ],
-                        //       )
-                        //           : Text(
-                        //         about,
-                        //         style: const TextStyle(fontSize: 15, height: 1.4),
-                        //       ),
-                        //     ],
-                        //   ),
-                        // ),
+
+
                         const SizedBox(height: 12),
 
                         // Interests section
-                        // ram ram
+
                         if (interests != null && interests!.isNotEmpty)
                           Container(
                             width: double.infinity,
@@ -4179,16 +4109,17 @@ class _ProfilePageState extends State<ProfilePage> {
                                   )).toList(),
                                 ),
                                 if (isAddingInterest) ...[
-                                  const SizedBox(height: 12),
-                                  DropdownButtonFormField<String>(
-                                    decoration: InputDecoration(
-                                      border: const OutlineInputBorder(),
-                                      hintText: 'Select an interest',
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Select your interests:',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
                                     ),
-                                    hint: Text('Select an interest'),
-                                    value: null,
-                                    items: [
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Column(
+                                    children: [
                                       'Reading',
                                       'Cooking',
                                       'Fitness',
@@ -4199,55 +4130,44 @@ class _ProfilePageState extends State<ProfilePage> {
                                       'Art',
                                       'Technology',
                                       'Outdoor Activities',
-                                      'Other'
-                                    ].map((String interest) {
-                                      return DropdownMenuItem<String>(
-                                        value: interest,
-                                        child: Text(interest),
-                                      );
-                                    }).toList(),
-                                    onChanged: (String? newValue) {
-                                      if (newValue == 'Other') {
-                                        // Show dialog to enter custom interest
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: Text('Add custom interest'),
-                                            content: TextField(
-                                              controller: interestController,
-                                              decoration: InputDecoration(hintText: 'Enter your interest'),
-                                              autofocus: true,
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: Text('Cancel'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  if (interestController.text.trim().isNotEmpty) {
-                                                    _addCustomInterest(interestController.text.trim());
-                                                    interestController.clear();
-                                                  }
-                                                  Navigator.pop(context);
-                                                },
-                                                child: Text('Add'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      } else if (newValue != null && !interests!.contains(newValue)) {
-                                        _addInterest(newValue);
-                                      }
-                                    },
+                                    ].map((interest) => CheckboxListTile(
+                                      title: Text(interest),
+                                      value: interests!.contains(interest),
+                                      onChanged: (bool? value) {
+                                        if (value == true) {
+                                          _addInterest(interest);
+                                        } else {
+                                          _removeInterest(interest);
+                                        }
+                                      },
+                                      controlAffinity: ListTileControlAffinity.leading,
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    )).toList(),
                                   ),
                                   const SizedBox(height: 8),
+                                  TextField(
+                                    controller: interestController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Add custom interest',
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.add),
+                                        onPressed: () {
+                                          if (interestController.text.trim().isNotEmpty) {
+                                            _addCustomInterest(interestController.text.trim());
+                                            interestController.clear();
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       TextButton(
                                         onPressed: () => setState(() => isAddingInterest = false),
-                                        child: Text('Done'),
+                                        child: const Text('Done'),
                                       ),
                                     ],
                                   ),
