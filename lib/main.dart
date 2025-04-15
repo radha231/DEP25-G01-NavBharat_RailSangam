@@ -1506,15 +1506,13 @@ class TravelersPage extends StatefulWidget {
   _TravelersPageState createState() => _TravelersPageState(emailId: emailId, travelDate: travelDate, selectedCoach: selectedCoach, trainNo: trainNo, fromStation:fromStation, toStation: toStation);
 }
 
-class _TravelersPageState extends State<TravelersPage> {
+TravelersPageState extends State<TravelersPage> {
   // ... (keep all your existing variables and methods)
   final String emailId;
   final String travelDate;
   final String selectedCoach;
   final String trainNo;
-  final String? fromStation;
-  final String? toStation;
-  _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo, required this.fromStation, required this.toStation});
+  _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo});
   // User's own data
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -1572,7 +1570,8 @@ class _TravelersPageState extends State<TravelersPage> {
   bool _isFirstLoad = true;
   late SharedPreferences _prefs;
 
-  @override
+
+
   @override
   void initState() {
     super.initState();
@@ -1610,6 +1609,7 @@ class _TravelersPageState extends State<TravelersPage> {
       print('Error clearing old notifications: $e');
     }
   }
+
 
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -1675,13 +1675,11 @@ class _TravelersPageState extends State<TravelersPage> {
   String? selectedProfession;
   String? selectedAgeGroup;
   String? selectedGender;
-  String? selectedInterest;
 
   // Define lists for dropdown options
   final List<String> professions = ['Student', 'Engineer', 'Doctor', 'Artist', 'Other'];
   final List<String> ageGroups = ['18-24', '25-34', '35-44', '45-54', '55+'];
   final List<String> genders = ['Male', 'Female'];
-  final List<String> interestList=['Reading', 'Cooking', 'Fitness', 'Photography', 'Travel', 'Music', 'Gaming', 'Art', 'Technology', 'Outdoor Activities', 'Other',];
   // Updated gradient colors to match the reference image
   final Gradient appBarGradient = LinearGradient(
     colors: [
@@ -2083,66 +2081,45 @@ class _TravelersPageState extends State<TravelersPage> {
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedProfession,
-                  hint: 'Profession',
-                  items: professions,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedProfession = newValue;
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedAgeGroup,
-                  hint: 'Age Group',
-                  items: ageGroups,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedAgeGroup = newValue;
-                    });
-                  },
-                ),
-              ),
-            ],
+          Expanded(
+            child: _buildFilterDropdown(
+              value: selectedProfession,
+              hint: 'Profession',
+              items: professions,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedProfession = newValue;
+                });
+              },
+            ),
           ),
-          SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedGender,
-                  hint: 'Gender',
-                  items: genders,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedGender = newValue;
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedInterest,
-                  hint: 'Interest',
-                  items: interestList,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedInterest = newValue;
-                    });
-                  },
-                ),
-              ),
-            ],
+          SizedBox(width: 10),
+          Expanded(
+            child: _buildFilterDropdown(
+              value: selectedAgeGroup,
+              hint: 'Age Group',
+              items: ageGroups,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedAgeGroup = newValue;
+                });
+              },
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: _buildFilterDropdown(
+              value: selectedGender,
+              hint: 'Gender',
+              items: genders,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedGender = newValue;
+                });
+              },
+            ),
           ),
         ],
       ),
@@ -2254,30 +2231,26 @@ class _TravelersPageState extends State<TravelersPage> {
 
   void _applyFilters() {
     setState(() {
+      // Filter the original list (_allSuggestedUsers) based on selected criteria
       suggestedUsers = _allSuggestedUsers.where((user) {
         bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
         bool matchesAgeGroup = selectedAgeGroup == null || user['Age Group'] == selectedAgeGroup;
         bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
-
-        // Interest filter: check if selectedInterest exists in user's Interests list
-        bool matchesInterest = selectedInterest == null ||
-            (user['Interests'] != null && (user['Interests'] as List).contains(selectedInterest));
 
         // Debug logs
         print('User: ${user['email_id']}');
         print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
         print('AgeGroup: ${user['Age Group']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
         print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
-        print('Interests: ${user['Interests']}, Selected: $selectedInterest, Matches: $matchesInterest');
         print('---');
 
-        return matchesProfession && matchesAgeGroup && matchesGender && matchesInterest;
+        return matchesProfession && matchesAgeGroup && matchesGender;
       }).toList();
     });
 
+    // Debug log to check the filtered list
     print('Filtered Users: ${suggestedUsers.length}');
   }
-
 
   // Add a method to clear filters
   void _clearFilters() {
@@ -2285,7 +2258,6 @@ class _TravelersPageState extends State<TravelersPage> {
       selectedProfession = null;
       selectedAgeGroup = null;
       selectedGender = null;
-      selectedInterest = null;
       suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
     });
   }
@@ -2595,12 +2567,12 @@ class _TravelersPageState extends State<TravelersPage> {
                                   return Icon(Icons.error);
                                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                                   return Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 8),
-                                      child: _buildUserAvatar(
-                                        avatarUrl: currentUser['avatarUrl'],
-                                        name: currentUser['name'] ?? 'You',
-                                        email: emailId,
-                                      )
+                                    padding: EdgeInsets.symmetric(horizontal: 8),
+                                    child: _buildUserAvatar(
+                                      avatarUrl: currentUser['avatarUrl'],
+                                      name: currentUser['name'] ?? 'You',
+                                      email: emailId,
+                                    )
                                   );
                                 } else {
                                   final userDetails = snapshot.data!;
@@ -2805,7 +2777,6 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
-
   Future<List<Map<String, dynamic>>> _fetchFollowRequests() async {
     try {
       // Get the current user's email
@@ -2859,7 +2830,7 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
- Future<void> _acceptFollowRequest(String requesterEmail) async {
+  Future<void> _acceptFollowRequest(String requesterEmail) async {
     try {
       // Get the current user's email (this is the user who is accepting the request)
       final currentUserEmail = emailId;
@@ -3065,6 +3036,66 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
+
+  // Future<void> _showNotification({
+  //   required String message,
+  //   required String email,
+  //   required String targetEmail,
+  // }) async {
+  //   try {
+  //     if (targetEmail != emailId) {
+  //       print('Notification intended for $targetEmail, current user is $emailId');
+  //       return;
+  //     }
+  //     // Remove timestamp from message if present
+  //     final cleanMessage = message.replaceAll(RegExp(r'\(.*\)$'), '').trim();
+  //
+  //     // Android notification details
+  //     final androidPlatformChannelSpecifics = AndroidNotificationDetails(
+  //       'follow_requests_channel',
+  //       'Follow Requests',
+  //       channelDescription: 'Notifications for social interactions',
+  //       importance: Importance.max,
+  //       priority: Priority.high,
+  //       ticker: 'ticker',
+  //       styleInformation: BigTextStyleInformation(
+  //         contentTitle: 'Tap to see the notification!!',
+  //         cleanMessage,
+  //         htmlFormatBigText: true,
+  //         summaryText: 'New notification',
+  //       ),
+  //     );
+  //
+  //     // iOS notification details
+  //     final darwinPlatformChannelSpecifics = DarwinNotificationDetails(
+  //       presentAlert: true,
+  //       presentBadge: true,
+  //       presentSound: true,
+  //       badgeNumber: 1,
+  //       subtitle: cleanMessage,
+  //       threadIdentifier: 'follow_requests',
+  //     );
+  //
+  //     final platformChannelSpecifics = NotificationDetails(
+  //       android: androidPlatformChannelSpecifics,
+  //       iOS: darwinPlatformChannelSpecifics,
+  //     );
+  //
+  //     if (targetEmail == emailId) {
+  //       await flutterLocalNotificationsPlugin.show(
+  //         DateTime
+  //             .now()
+  //             .millisecondsSinceEpoch ~/ 1000,
+  //         'Tap to see the notification!!',
+  //         cleanMessage,
+  //         platformChannelSpecifics,
+  //         payload: email,
+  //       );
+  //     }
+  //   } catch (e) {
+  //     print('Error showing notification: $e');
+  //   }
+  // }
   void _handleNotificationTap(String payload) {
     // payload contains the email of the user who sent the notification
     Navigator.of(context).push(
@@ -3076,6 +3107,7 @@ class _TravelersPageState extends State<TravelersPage> {
       ),
     );
   }
+
   Future<void> _checkForPendingNotifications() async {
     try {
       final currentUserSnapshot = await _firestore
@@ -3096,7 +3128,7 @@ class _TravelersPageState extends State<TravelersPage> {
       final currentTime = DateTime.now().millisecondsSinceEpoch;
 
       // Only show notifications if it's been a while since last check
-      if (currentTime - lastShownTimestamp > 30000) { // 30 seconds cooldown
+      if (currentTime - lastShownTimestamp > 30000*60) { // 30 seconds cooldown
         // Show all current notifications
         for (final notification in notifications) {
           final notificationStr = notification.toString();
@@ -3129,6 +3161,76 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
+  // Future<void> _checkForPendingNotifications() async {
+  //   try {
+  //     final currentUserSnapshot = await _firestore
+  //         .collection('Users')
+  //         .where('email_Id', isEqualTo: emailId)
+  //         .get();
+  //
+  //     if (currentUserSnapshot.docs.isEmpty) return;
+  //
+  //     final currentUserDoc = currentUserSnapshot.docs.first;
+  //     final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
+  //     final List<dynamic> notifications = currentUserData['notifications'] ?? [];
+  //     final List<dynamic> shownNotifications = _prefs.getStringList('shownNotifications') ?? [];
+  //
+  //     // Debug print to check what notifications we're working with
+  //     print('[DEBUG] All notifications for $emailId: $notifications');
+  //     print('[DEBUG] Already shown notifications: $shownNotifications');
+  //
+  //     // Find notifications that:
+  //     // 1. Are addressed to the current user (contain their email or are general notifications)
+  //     // 2. Haven't been shown yet
+  //     final newNotifications = notifications.where((notification) {
+  //
+  //       // Check if notification hasn't been shown yet
+  //       final notShownYet ;
+  //       if(shownNotifications.isEmpty){
+  //         notShownYet=true;
+  //       }
+  //       else{
+  //         notShownYet = !shownNotifications.contains(notification.toString());
+  //
+  //     }
+  //       return notShownYet;
+  //     }).toList();
+  //
+  //     print('[DEBUG] New notifications to show: $newNotifications');
+  //
+  //     if (newNotifications.isNotEmpty) {
+  //       // Show all new notifications (not just the most recent one)
+  //       for (final notification in newNotifications) {
+  //         final notificationStr = notification.toString();
+  //
+  //         // Try to extract the other user's email from the notification
+  //         String? otherUserEmail;
+  //         final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})')
+  //             .firstMatch(notificationStr);
+  //         if (emailMatch != null) {
+  //           otherUserEmail = emailMatch.group(0);
+  //         }
+  //
+  //         await _showNotification(
+  //           message: notificationStr.replaceAll(RegExp(r'\(.*\)$'), '').trim(),
+  //           email: otherUserEmail ?? 'system', // sender's email or 'system'
+  //           targetEmail: emailId, // always current user
+  //         );
+  //
+  //         // Mark as shown
+  //         shownNotifications.add(notificationStr);
+  //       }
+  //       // Store shown notifications in SharedPreferences
+  //       await _prefs.setStringList(
+  //           'shownNotifications',
+  //           [...shownNotifications, ...newNotifications]
+  //       );
+  //     }
+  //   } catch (e) {
+  //     print('Error checking for notifications: $e');
+  //   }
+  // }
+  //
 
   // Updated follow requests modal
   void _showFollowRequests() async {
@@ -3163,11 +3265,11 @@ class _TravelersPageState extends State<TravelersPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 3,
-                        offset: Offset(0, 1),
-                      )
+                    BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                    )
                     ],
                   ),
                   child: Row(
@@ -3295,11 +3397,11 @@ class _TravelersPageState extends State<TravelersPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            )
+                          BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                          )
                           ],
                         ),
                         child: Row(
