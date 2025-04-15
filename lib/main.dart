@@ -4763,8 +4763,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            onPressed: () {
+            onPressed: () async {
               // TODO: Implement account deletion logic
+              await deleteAccount();
               Navigator.pop(context);
               // After deletion, navigate to login screen
               Navigator.of(context).pushAndRemoveUntil(
@@ -4778,10 +4779,96 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ),
     );
   }
+  Future<void> deleteAccount() async {
+    print("Starting account deletion process");
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    final FirebaseAuth auth = FirebaseAuth.instance;
+
+    try {
+      // Get current user
+      User? user = auth.currentUser;
+      if (user == null || user.email == null) {
+        throw Exception("User is not logged in or email is null.");
+      }
+
+      // Fetch user document to get stored password
+      final QuerySnapshot snapshot = await firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId) // Make sure the field name matches exactly
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 10));
+
+      if (snapshot.docs.isEmpty) {
+        throw Exception("User document not found in Firestore.");
+      }
+
+      final DocumentSnapshot document = snapshot.docs.first;
+      final userData = document.data() as Map<String, dynamic>? ?? {};
+      final String _password = userData['Password'] ?? "";
+
+      if (_password.isEmpty) {
+        throw Exception("Password not found in user document.");
+      }
+
+      // Re-authenticate
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: _password,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      // Step 1: Delete from "Users" collection
+      final usersQuery = await firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+      for (var doc in usersQuery.docs) {
+        await doc.reference.delete();
+      }
+
+      // Step 2: Delete from "chats"
+      final chatsFromQuery = await firestore
+          .collection('chats')
+          .where('from_email', isEqualTo: emailId)
+          .get();
+      for (var doc in chatsFromQuery.docs) {
+        await doc.reference.delete();
+      }
+
+      final chatsToQuery = await firestore
+          .collection('chats')
+          .where('to_email', isEqualTo: emailId)
+          .get();
+      for (var doc in chatsToQuery.docs) {
+        await doc.reference.delete();
+      }
+
+      // Step 3: Delete from "Journey"
+      final journeyQuery = await firestore
+          .collection('Journey')
+          .where('email_id', isEqualTo: emailId)
+          .get();
+      for (var doc in journeyQuery.docs) {
+        await doc.reference.delete();
+      }
+
+      // Step 4: Delete Firebase Auth account
+      await user.delete();
+
+      print("Account deleted successfully.");
+    } catch (e) {
+      print("Error deleting account: $e");
+      rethrow;
+    }
+  }
+
+
   Future<void> _fetchUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      emailId = prefs.getString('user_email');
+      emailId = prefs.getString('user_email') ?? "";
       final FirebaseFirestore firestore = FirebaseFirestore.instance;
       final QuerySnapshot snapshot = await firestore
           .collection('Users')
