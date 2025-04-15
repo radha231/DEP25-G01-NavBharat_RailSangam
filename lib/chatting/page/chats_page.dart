@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Sample messages to suggest when chat is empty
   final List<String> sampleMessages = [
     // "Hi",
-    "Hi there! Which station did you board from?",
+    // "Hi there! Which station did you board from?",
     "Is this your first time on this train route?",
     // "Hello, I noticed we're traveling on the same train.",
     // "Would you be interested in sharing a taxi upon arrival?",
