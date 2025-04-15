@@ -1573,21 +1573,43 @@ class _TravelersPageState extends State<TravelersPage> {
   late SharedPreferences _prefs;
 
   @override
+  @override
   void initState() {
     super.initState();
-    _initSharedPrefs();
-    _initializeNotifications();
-    _checkForPendingNotifications();
-    // Initialize hover states for friends
+    _initSharedPrefs().then((_) {
+      _initializeNotifications();
+      if (_isFirstLoad) {
+        _checkForPendingNotifications();
+        _clearOldNotifications();
+      }
+    });
     _fetchCurrentUserDetails().then((userDetails) {
       setState(() {
-        currentUser = userDetails; // Update the currentUser map
+        currentUser = userDetails;
       });
     });
     _fetchSuggestedUsers();
     _removeOverlappingRejectedRequests(emailId);
   }
 
+  Future<void> _clearOldNotifications() async {
+    try {
+      final currentUserSnapshot = await _firestore
+          .collection('Users')
+          .where('email_Id', isEqualTo: emailId)
+          .get();
+
+      if (currentUserSnapshot.docs.isNotEmpty) {
+        await _firestore.collection('Users')
+            .doc(currentUserSnapshot.docs.first.id)
+            .update({
+          'notifications': [],
+        });
+      }
+    } catch (e) {
+      print('Error clearing old notifications: $e');
+    }
+  }
 
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -2719,6 +2741,7 @@ class _TravelersPageState extends State<TravelersPage> {
       final currentUserDoc = currentUserSnapshot.docs.first;
       final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
       final List<dynamic> notifications = currentUserData['notifications'] ?? [];
+      final List<dynamic> notif = currentUserData['notifs'] ?? [];
 
       showModalBottomSheet(
         context: context,
@@ -2728,7 +2751,7 @@ class _TravelersPageState extends State<TravelersPage> {
           return _buildModalCard(
             title: 'Notifications',
             children: [
-              if (notifications.isEmpty)
+              if (notif.isEmpty)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
                   child: Text(
@@ -2740,7 +2763,7 @@ class _TravelersPageState extends State<TravelersPage> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              ...notifications.reversed.map((notification) { // Show newest first
+              ...notif.reversed.map((notification) { // Show newest first
                 return Container(
                   margin: EdgeInsets.only(bottom: 10),
                   padding: EdgeInsets.all(12),
@@ -2781,6 +2804,7 @@ class _TravelersPageState extends State<TravelersPage> {
       );
     }
   }
+
 
   Future<List<Map<String, dynamic>>> _fetchFollowRequests() async {
     try {
@@ -2835,7 +2859,7 @@ class _TravelersPageState extends State<TravelersPage> {
     }
   }
 
-  Future<void> _acceptFollowRequest(String requesterEmail) async {
+ Future<void> _acceptFollowRequest(String requesterEmail) async {
     try {
       // Get the current user's email (this is the user who is accepting the request)
       final currentUserEmail = emailId;
@@ -2853,6 +2877,8 @@ class _TravelersPageState extends State<TravelersPage> {
       final currentUserDoc = currentUserSnapshot.docs.first;
       final timestamp = DateTime.now();
       final formattedTimestamp = "${timestamp.hour}:${timestamp.minute} ${timestamp.day}/${timestamp.month}/${timestamp.year}";
+      final currentUserData=currentUserDoc.data() as Map<String, dynamic>;;
+      final currentUserName = currentUserData['Name'] ?? 'User';
 
       // Fetch the requester's document (this is the user who sent the request)
       final QuerySnapshot requesterSnapshot = await _firestore
@@ -2879,6 +2905,9 @@ class _TravelersPageState extends State<TravelersPage> {
         'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
         'following': FieldValue.arrayUnion([currentUserEmail]), // Add to following
         'notifications': FieldValue.arrayUnion([
+          '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
+        ]), // Add notification to the requester's list
+        'notifs':FieldValue.arrayUnion([
           '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
         ]), // Add notification to the requester's list
       });
@@ -2950,6 +2979,10 @@ class _TravelersPageState extends State<TravelersPage> {
         'notifications': FieldValue.arrayUnion([
           '$currentUserEmail has rejected your follow request. You can send a new request from suggestions. ($formattedTimestamp)',
         ]), // Add notification to the requester's list
+        'notifs':FieldValue.arrayUnion([
+          '$currentUserEmail has rejected your follow request. You can send a new request from suggestions. ($formattedTimestamp)',
+        ]), // Add notification to the requester's list
+
       });
 
       // Show a success message to the current user
@@ -2985,8 +3018,12 @@ class _TravelersPageState extends State<TravelersPage> {
         print('Notification intended for $targetEmail, current user is $emailId');
         return;
       }
-      // Remove timestamp from message if present
-      final cleanMessage = message.replaceAll(RegExp(r'\(.*\)$'), '').trim();
+
+      // Check if this exact message was already shown
+      final shownMessages = _prefs.getStringList('shownMessages') ?? [];
+      if (shownMessages.contains(message)) {
+        return;
+      }
 
       // Android notification details
       final androidPlatformChannelSpecifics = AndroidNotificationDetails(
@@ -2996,12 +3033,6 @@ class _TravelersPageState extends State<TravelersPage> {
         importance: Importance.max,
         priority: Priority.high,
         ticker: 'ticker',
-        styleInformation: BigTextStyleInformation(
-          contentTitle: 'Tap to see the notification!!',
-          cleanMessage,
-          htmlFormatBigText: true,
-          summaryText: 'New notification',
-        ),
       );
 
       // iOS notification details
@@ -3009,9 +3040,6 @@ class _TravelersPageState extends State<TravelersPage> {
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        badgeNumber: 1,
-        subtitle: cleanMessage,
-        threadIdentifier: 'follow_requests',
       );
 
       final platformChannelSpecifics = NotificationDetails(
@@ -3019,21 +3047,24 @@ class _TravelersPageState extends State<TravelersPage> {
         iOS: darwinPlatformChannelSpecifics,
       );
 
-      if (targetEmail == emailId) {
-        await flutterLocalNotificationsPlugin.show(
-          DateTime
-              .now()
-              .millisecondsSinceEpoch ~/ 1000,
-          'Tap to see the notification!!',
-          cleanMessage,
-          platformChannelSpecifics,
-          payload: email,
-        );
-      }
+      await flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'New Notification',
+        message,
+        platformChannelSpecifics,
+        payload: email,
+      );
+
+      // Mark this message as shown
+      await _prefs.setStringList(
+        'shownMessages',
+        [...shownMessages, message],
+      );
     } catch (e) {
       print('Error showing notification: $e');
     }
   }
+
   void _handleNotificationTap(String payload) {
     // payload contains the email of the user who sent the notification
     Navigator.of(context).push(
@@ -3056,38 +3087,19 @@ class _TravelersPageState extends State<TravelersPage> {
 
       final currentUserDoc = currentUserSnapshot.docs.first;
       final currentUserData = currentUserDoc.data() as Map<String, dynamic>;
-      final List<dynamic> notifications = currentUserData['notifications'] ?? [];
-      final List<dynamic> shownNotifications = _prefs.getStringList('shownNotifications') ?? [];
+      List<dynamic> notifications = currentUserData['notifications'] ?? [];
 
-      // Debug print to check what notifications we're working with
-      print('[DEBUG] All notifications for $emailId: $notifications');
-      print('[DEBUG] Already shown notifications: $shownNotifications');
+      if (notifications.isEmpty) return;
 
-      // Find notifications that:
-      // 1. Are addressed to the current user (contain their email or are general notifications)
-      // 2. Haven't been shown yet
-      final newNotifications = notifications.where((notification) {
+      // Get the last shown notification timestamp from SharedPreferences
+      final lastShownTimestamp = _prefs.getInt('lastNotificationShown') ?? 0;
+      final currentTime = DateTime.now().millisecondsSinceEpoch;
 
-        // Check if notification hasn't been shown yet
-        final notShownYet ;
-        if(shownNotifications.isEmpty){
-          notShownYet=true;
-        }
-        else{
-          notShownYet = !shownNotifications.contains(notification.toString());
-
-        }
-        return notShownYet;
-      }).toList();
-
-      print('[DEBUG] New notifications to show: $newNotifications');
-
-      if (newNotifications.isNotEmpty) {
-        // Show all new notifications (not just the most recent one)
-        for (final notification in newNotifications) {
+      // Only show notifications if it's been a while since last check
+      if (currentTime - lastShownTimestamp > 30000) { // 30 seconds cooldown
+        // Show all current notifications
+        for (final notification in notifications) {
           final notificationStr = notification.toString();
-
-          // Try to extract the other user's email from the notification
           String? otherUserEmail;
           final emailMatch = RegExp(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})')
               .firstMatch(notificationStr);
@@ -3095,20 +3107,22 @@ class _TravelersPageState extends State<TravelersPage> {
             otherUserEmail = emailMatch.group(0);
           }
 
+
+
           await _showNotification(
             message: notificationStr.replaceAll(RegExp(r'\(.*\)$'), '').trim(),
-            email: otherUserEmail ?? 'system', // sender's email or 'system'
-            targetEmail: emailId, // always current user
+            email: otherUserEmail ?? 'system',
+            targetEmail: emailId,
           );
-
-          // Mark as shown
-          shownNotifications.add(notificationStr);
         }
-        // Store shown notifications in SharedPreferences
-        await _prefs.setStringList(
-            'shownNotifications',
-            [...shownNotifications, ...newNotifications]
-        );
+
+        // Clear all notifications after showing them
+        await _firestore.collection('Users').doc(currentUserDoc.id).update({
+          'notifications': [],
+        });
+
+        // Update last shown timestamp
+        await _prefs.setInt('lastNotificationShown', currentTime);
       }
     } catch (e) {
       print('Error checking for notifications: $e');
