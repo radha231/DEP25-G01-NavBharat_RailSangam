@@ -4,29 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'firebase_options.dart';
 import 'dart:math';
-import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import './notificationPage.dart';
 import 'splashscreen.dart'; // Import the new splash screen
 import 'login_screen.dart'; // Import login screen
-import 'package:classico/chatting/page/chat_page.dart';
 import 'package:classico/chatting/page/chats_page.dart';
-import 'package:classico/chatting/model/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme_provider.dart'; // Make sure this path is correct
-import 'package:provider/provider.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'package:flutter_local_notifications_platform_interface/flutter_local_notifications_platform_interface.dart';
 
 
@@ -1536,11 +1528,13 @@ class _TravelersPageState extends State<TravelersPage> {
   String? selectedProfession;
   String? selectedAgeGroup;
   String? selectedGender;
+  String? selectedInterest;
 
   // Define lists for dropdown options
   final List<String> professions = ['Student', 'Engineer', 'Doctor', 'Artist', 'Other'];
   final List<String> ageGroups = ['18-24', '25-34', '35-44', '45-54', '55+'];
   final List<String> genders = ['Male', 'Female'];
+  final List<String> interestList=['Reading', 'Cooking', 'Fitness', 'Photography', 'Travel', 'Music', 'Gaming', 'Art', 'Technology', 'Outdoor Activities', 'Other',];
   // Updated gradient colors to match the reference image
   final Gradient appBarGradient = LinearGradient(
     colors: [
@@ -1942,45 +1936,66 @@ class _TravelersPageState extends State<TravelersPage> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _buildFilterDropdown(
-              value: selectedProfession,
-              hint: 'Profession',
-              items: professions,
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedProfession = newValue;
-                });
-              },
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterDropdown(
+                  value: selectedProfession,
+                  hint: 'Profession',
+                  items: professions,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedProfession = newValue;
+                    });
+                  },
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: _buildFilterDropdown(
+                  value: selectedAgeGroup,
+                  hint: 'Age Group',
+                  items: ageGroups,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedAgeGroup = newValue;
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
-          SizedBox(width: 10),
-          Expanded(
-            child: _buildFilterDropdown(
-              value: selectedAgeGroup,
-              hint: 'Age Group',
-              items: ageGroups,
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedAgeGroup = newValue;
-                });
-              },
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: _buildFilterDropdown(
-              value: selectedGender,
-              hint: 'Gender',
-              items: genders,
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedGender = newValue;
-                });
-              },
-            ),
+          SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterDropdown(
+                  value: selectedGender,
+                  hint: 'Gender',
+                  items: genders,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedGender = newValue;
+                    });
+                  },
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: _buildFilterDropdown(
+                  value: selectedInterest,
+                  hint: 'Interest',
+                  items: interestList,
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedInterest = newValue;
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2092,26 +2107,30 @@ class _TravelersPageState extends State<TravelersPage> {
 
   void _applyFilters() {
     setState(() {
-      // Filter the original list (_allSuggestedUsers) based on selected criteria
       suggestedUsers = _allSuggestedUsers.where((user) {
         bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
         bool matchesAgeGroup = selectedAgeGroup == null || user['Age Group'] == selectedAgeGroup;
         bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
+
+        // Interest filter: check if selectedInterest exists in user's Interests list
+        bool matchesInterest = selectedInterest == null ||
+            (user['Interests'] != null && (user['Interests'] as List).contains(selectedInterest));
 
         // Debug logs
         print('User: ${user['email_id']}');
         print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
         print('AgeGroup: ${user['Age Group']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
         print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
+        print('Interests: ${user['Interests']}, Selected: $selectedInterest, Matches: $matchesInterest');
         print('---');
 
-        return matchesProfession && matchesAgeGroup && matchesGender;
+        return matchesProfession && matchesAgeGroup && matchesGender && matchesInterest;
       }).toList();
     });
 
-    // Debug log to check the filtered list
     print('Filtered Users: ${suggestedUsers.length}');
   }
+
 
   // Add a method to clear filters
   void _clearFilters() {
@@ -2119,6 +2138,7 @@ class _TravelersPageState extends State<TravelersPage> {
       selectedProfession = null;
       selectedAgeGroup = null;
       selectedGender = null;
+      selectedInterest = null;
       suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
     });
   }
