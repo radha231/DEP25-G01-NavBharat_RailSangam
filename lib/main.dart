@@ -23,6 +23,9 @@ import 'package:flutter_local_notifications_platform_interface/flutter_local_not
 
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+String? __currentStation;
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+// late List<String> all_stations;
 
 
 Map<String, double> parseCoordinates(String coordinates) {
@@ -243,8 +246,10 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Create Train object for navigation
                   final List<String> stations = List<String>.from(trainData['Stops'] ?? []);
+
                   final List<String> coordinates = [];
                   for (String station in stations) {
+                    // all_stations.add(station);
                     QuerySnapshot query = await FirebaseFirestore.instance
                         .collection('Coordinates')
                         .where('Station', isEqualTo: station)
@@ -776,6 +781,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
   //     status = await Permission.notification.request();
   //   }
   // }
+  // final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   Future<void> requestPermissions() async {
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
@@ -794,6 +800,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse notificationResponse) async {
         if (notificationResponse.payload != null) {
+          print('Jai shree Krishna!!');
           // Access Navigator using a Builder widget
           Navigator.push(
             navigatorKey.currentContext!, // Use the navigator key
@@ -806,7 +813,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
     );
   }
 
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 
   @override
   Widget build(BuildContext context) {
@@ -938,6 +945,7 @@ class _HomePageState extends State<HomePage> {
   void checkNearestStation(Position position) {
 
     String coordinates = widget.selectedTrain.coordinates[currentStationIndex];
+    __currentStation = widget.selectedTrain.stations[0];
     Map<String, double> result = parseCoordinates(coordinates);
     print("Flag..............");
     print(result["latitude"]);
@@ -1517,7 +1525,7 @@ class _TravelersPageState extends State<TravelersPage> {
   _TravelersPageState({required this.emailId, required this.travelDate, required this.selectedCoach, required this.trainNo, required this.fromStation, required this.toStation});
 // User's own data
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
   FlutterLocalNotificationsPlugin();
 
   Map<String, dynamic> currentUser = {
@@ -1639,17 +1647,38 @@ class _TravelersPageState extends State<TravelersPage> {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-
+    // final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
     final InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(
+    await _flutterLocalNotificationsPlugin.initialize(
+
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
+
         if (response.payload != null) {
-          _handleNotificationTap(response.payload!);
+          print("CCC");
+          // print(all_stations);
+          if(response.payload == __currentStation){
+            print("AAAAA");
+            Navigator.push(
+              navigatorKey.currentContext!, // Use the navigator key
+              MaterialPageRoute(
+                builder: (context) => NotificationPage(stationName: response.payload!),
+              ),
+            );
+          }
+          else{
+            print("BBB");
+            // print(all_stations);
+            _handleNotificationTap_Traveller(response.payload!);
+          }
+
+        }
+        else{
+          print("BB");
         }
       },
     );
@@ -3055,7 +3084,7 @@ class _TravelersPageState extends State<TravelersPage> {
         iOS: darwinPlatformChannelSpecifics,
       );
 
-      await flutterLocalNotificationsPlugin.show(
+      await _flutterLocalNotificationsPlugin.show(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
         'New Notification',
         message,
@@ -3133,7 +3162,8 @@ class _TravelersPageState extends State<TravelersPage> {
 //     print('Error showing notification: $e');
 //   }
 // }
-  void _handleNotificationTap(String payload) {
+  void _handleNotificationTap_Traveller(String payload) {
+    print("Flag..............RK");
     // payload contains the email of the user who sent the notification
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -4058,12 +4088,82 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
 
-
-
+                        // About section
+                        // Container(
+                        //   width: double.infinity,
+                        //
+                        //   padding: const EdgeInsets.all(16),
+                        //   margin: const EdgeInsets.only(bottom: 16),
+                        //   decoration: BoxDecoration(
+                        //     color: Colors.blue.shade100,
+                        //     borderRadius: BorderRadius.circular(12),
+                        //     border: Border.all(color: Colors.grey.shade200),
+                        //   ),
+                        //   child: Column(
+                        //     crossAxisAlignment: CrossAxisAlignment.start,
+                        //     children: [
+                        //       Row(
+                        //         crossAxisAlignment: CrossAxisAlignment.start,
+                        //         children: [
+                        //           const Text(
+                        //             'About',
+                        //             style: TextStyle(
+                        //               fontSize: 18,
+                        //
+                        //               fontWeight: FontWeight.bold,
+                        //             ),
+                        //           ),
+                        //           const Spacer(),
+                        //           if (!isEditingAbout)
+                        //             IconButton(
+                        //               icon: const Icon(Icons.edit, size: 18),
+                        //               onPressed: () => setState(() => isEditingAbout = true),
+                        //             ),
+                        //         ],
+                        //       ),
+                        //       const SizedBox(height: 8),
+                        //       isEditingAbout
+                        //           ? Column(
+                        //         children: [
+                        //           TextField(
+                        //             controller: aboutController,
+                        //             maxLines: 3,
+                        //             decoration: const InputDecoration(
+                        //               border: OutlineInputBorder(),
+                        //               hintText: 'Tell something about yourself',
+                        //             ),
+                        //           ),
+                        //           const SizedBox(height: 10),
+                        //           Row(
+                        //             mainAxisAlignment: MainAxisAlignment.end,
+                        //             children: [
+                        //               TextButton(
+                        //                 onPressed: () => setState(() {
+                        //                   isEditingAbout = false;
+                        //                   aboutController.text = about;
+                        //                 }),
+                        //                 child: const Text('Cancel'),
+                        //               ),
+                        //               const SizedBox(width: 10),
+                        //               ElevatedButton(
+                        //                 onPressed: _updateAbout,
+                        //                 child: const Text('Save'),
+                        //               ),
+                        //             ],
+                        //           ),
+                        //         ],
+                        //       )
+                        //           : Text(
+                        //         about,
+                        //         style: const TextStyle(fontSize: 15, height: 1.4),
+                        //       ),
+                        //     ],
+                        //   ),
+                        // ),
                         const SizedBox(height: 12),
 
                         // Interests section
-
+                        // ram ram
                         if (interests != null && interests!.isNotEmpty)
                           Container(
                             width: double.infinity,
@@ -4109,17 +4209,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                   )).toList(),
                                 ),
                                 if (isAddingInterest) ...[
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Select your interests:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 12),
+                                  DropdownButtonFormField<String>(
+                                    decoration: InputDecoration(
+                                      border: const OutlineInputBorder(),
+                                      hintText: 'Select an interest',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Column(
-                                    children: [
+                                    hint: Text('Select an interest'),
+                                    value: null,
+                                    items: [
                                       'Reading',
                                       'Cooking',
                                       'Fitness',
@@ -4130,44 +4229,55 @@ class _ProfilePageState extends State<ProfilePage> {
                                       'Art',
                                       'Technology',
                                       'Outdoor Activities',
-                                    ].map((interest) => CheckboxListTile(
-                                      title: Text(interest),
-                                      value: interests!.contains(interest),
-                                      onChanged: (bool? value) {
-                                        if (value == true) {
-                                          _addInterest(interest);
-                                        } else {
-                                          _removeInterest(interest);
-                                        }
-                                      },
-                                      controlAffinity: ListTileControlAffinity.leading,
-                                      dense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                    )).toList(),
+                                      'Other'
+                                    ].map((String interest) {
+                                      return DropdownMenuItem<String>(
+                                        value: interest,
+                                        child: Text(interest),
+                                      );
+                                    }).toList(),
+                                    onChanged: (String? newValue) {
+                                      if (newValue == 'Other') {
+                                        // Show dialog to enter custom interest
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: Text('Add custom interest'),
+                                            content: TextField(
+                                              controller: interestController,
+                                              decoration: InputDecoration(hintText: 'Enter your interest'),
+                                              autofocus: true,
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: Text('Cancel'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  if (interestController.text.trim().isNotEmpty) {
+                                                    _addCustomInterest(interestController.text.trim());
+                                                    interestController.clear();
+                                                  }
+                                                  Navigator.pop(context);
+                                                },
+                                                child: Text('Add'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      } else if (newValue != null && !interests!.contains(newValue)) {
+                                        _addInterest(newValue);
+                                      }
+                                    },
                                   ),
                                   const SizedBox(height: 8),
-                                  TextField(
-                                    controller: interestController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Add custom interest',
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(Icons.add),
-                                        onPressed: () {
-                                          if (interestController.text.trim().isNotEmpty) {
-                                            _addCustomInterest(interestController.text.trim());
-                                            interestController.clear();
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       TextButton(
                                         onPressed: () => setState(() => isAddingInterest = false),
-                                        child: const Text('Done'),
+                                        child: Text('Done'),
                                       ),
                                     ],
                                   ),
