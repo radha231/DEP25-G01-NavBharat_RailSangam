@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // "Good day, do you know if WiFi is available onboard?",
   ];
 
-  late StreamSubscription<QuerySnapshot> _messageSubscription;
+   StreamSubscription<QuerySnapshot>? _messageSubscription;
 
   @override
   void initState() {
@@ -131,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _messageSubscription.cancel();
+    _messageSubscription?.cancel();
     super.dispose();
   }
 
@@ -973,14 +973,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           Expanded(
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                image: DecorationImage(
-                  image: AssetImage('assets/chat_background.png'),
-                  fit: BoxFit.cover,
-                  opacity: 0.05,
-                ),
-              ),
+              // decoration: BoxDecoration(
+              //   color: Colors.grey.shade100,
+              //   image: DecorationImage(
+              //     image: AssetImage('assets/chat_background.png'),
+              //     fit: BoxFit.cover,
+              //     opacity: 0.05,
+              //   ),
+              // ),
               child: StreamBuilder(
                 stream: firestore.collection('chats')
                     .where(
