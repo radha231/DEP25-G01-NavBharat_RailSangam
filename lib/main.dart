@@ -214,7 +214,7 @@ class _LoginPageState extends State<LoginPage> {
           for (var doc in querySnapshot.docs) {
             final journeyData = doc.data();
             final journeyDate = journeyData['travel_date'] as String?;
-            __currentStation = journeyData['current_station'] as String?;
+
             if (journeyDate != null) {
               // Parse dates for comparison
               final List<int> journeyDateParts = journeyDate.split('-')
@@ -232,6 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                 final trainNo = journeyData['train_no'] as String;
                 final coachNumber = journeyData['coach_number'] as String;
                 final fromStation = journeyData['from_station'] as String?;
+                __currentStation = journeyData['current_station'] as String?;
                 final toStation = journeyData['to_station'] as String?;
 
                 // Fetch train details
@@ -246,7 +247,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Create Train object for navigation
                   final List<String> stations = List<String>.from(trainData['Stops'] ?? []);
-
+                  // __currentStation = stations[0];
                   final List<String> coordinates = [];
                   for (String station in stations) {
                     // all_stations.add(station);
@@ -260,6 +261,8 @@ class _LoginPageState extends State<LoginPage> {
                       coordinate = query.docs.first['Coordinates'];
                     }
                     coordinates.add(coordinate ?? "Unknown");
+                    // print("jai shree krishna");
+                    // print(coordinates);
                   }
 
                   final List<String> coaches = List<String>.from(trainData['Coaches'] ?? []);
@@ -637,6 +640,7 @@ class _LoginPageState extends State<LoginPage> {
                                       'travel_date': travelDate,
                                       'coach_number': selectedCoach,
                                       'from_station': selectedFromStation,
+                                      'current_station' : selectedFromStation,
                                       'to_station': selectedToStation,
                                       'timestamp': FieldValue.serverTimestamp(),
                                       'expiryDate': Timestamp.fromDate(expiryDate!), // Firestore timestamp
@@ -701,6 +705,9 @@ class MessageListenerService {
   StreamSubscription? _messageSubscription;
 
   void startListening(String currentUserEmail) {
+    // Cancel any existing subscription first to prevent memory leaks
+    _messageSubscription?.cancel();
+
     _messageSubscription = FirebaseFirestore.instance.collection('chats')
         .where('to_email', isEqualTo: currentUserEmail)
         .where('read', isEqualTo: false)
@@ -731,6 +738,7 @@ class MessageListenerService {
 
   void stopListening() {
     _messageSubscription?.cancel();
+    _messageSubscription = null;  // Clear the subscription after cancelling
   }
 }
 class TrainSocialApp extends StatefulWidget {
@@ -843,7 +851,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
   }
 
   // Keep this function unchanged
-  Future<void> showNextStationNotification(Train selectedTrain, String emailId) async {
+  Future<void> showNextStationNotification(Train selectedTrain) async {
     print('showNextStationNotification called');
     if (selectedTrain.stations.isNotEmpty) {
       String stationName = selectedTrain.stations[0];
@@ -865,25 +873,25 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 
       // Remove the first station from the list
       selectedTrain.stations.removeAt(0);
-
-      // If there are more stations, update the current_station in Firestore
-      if (selectedTrain.stations.isNotEmpty) {
-        String nextStation = selectedTrain.stations[0];
-        FirebaseFirestore.instance
-            .collection('Journey')
-            .where('email_Id', isEqualTo: emailId)
-            .get()
-            .then((querySnapshot) {
-          for (var doc in querySnapshot.docs) {
-            doc.reference.update({'current_station': nextStation});
-          }
-        }).catchError((error) {
-          print("Error updating current_station: $error");
-        });
-      }
+      /// RRRRRRRR
+      final prefs = await SharedPreferences.getInstance();
+      final emailId = prefs.getString('user_email') ?? "";
+      String nextStation = selectedTrain.stations[0];
+      print("mudit");
+      print(nextStation);
+      FirebaseFirestore.instance
+          .collection('Journey')
+          .where('email_id', isEqualTo: emailId)
+          .get()
+          .then((querySnapshot) {
+        for (var doc in querySnapshot.docs) {
+          doc.reference.update({'current_station': nextStation});
+        }
+      }).catchError((error) {
+        print("Error updating current_station: $error");
+      });
     }
   }
-
 }
 
 
@@ -925,7 +933,7 @@ class _HomePageState extends State<HomePage> {
       HomeScreen(),
       ProfilePage(emailId : this.emailId),
     ];
-    startLocationTracking(this.emailId);
+    startLocationTracking();
   }
 
   @override
@@ -934,10 +942,11 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  void startLocationTracking(String emailId) {
+  void startLocationTracking() {
+    /////////////////////////////////
     int fromIndex = -1;
     for (int i = 0; i < widget.selectedTrain.stations.length; i++) {
-      if (widget.selectedTrain.stations[i] == fromStation) {
+      if (widget.selectedTrain.stations[i] == __currentStation) {
         fromIndex = i;
         break;
       }
@@ -948,20 +957,23 @@ class _HomePageState extends State<HomePage> {
     if (fromIndex != -1) {
       for (int i = 0; i < fromIndex; i++) {
         widget.selectedTrain.stations.removeAt(0); // Always remove the first element
+        widget.selectedTrain.coordinates.removeAt(0);
       }
+      __currentStation = widget.selectedTrain.stations[0];
     }
-    _locationTimer = Timer.periodic(const Duration(minutes: 1), (timer) async {
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      print('KKKKKKK');
       final position = await LocationService.getCurrentLocation();
       if (position != null) {
-        checkNearestStation(position, emailId);
+        checkNearestStation(position);
       }
     });
   }
 
-  void checkNearestStation(Position position, String emailId) {
-
+  void checkNearestStation(Position position) {
+    print('check called');
     String coordinates = widget.selectedTrain.coordinates[currentStationIndex];
-    __currentStation = widget.selectedTrain.stations[0];
+
     Map<String, double> result = parseCoordinates(coordinates);
     print("Flag..............");
     print(result["latitude"]);
@@ -983,7 +995,8 @@ class _HomePageState extends State<HomePage> {
 
       if (trainSocialAppState != null) {
         currentStationIndex++;
-        trainSocialAppState.showNextStationNotification(widget.selectedTrain, emailId);
+
+        trainSocialAppState.showNextStationNotification(widget.selectedTrain);
       }
     }
   }
@@ -2408,10 +2421,10 @@ class _TravelersPageState extends State<TravelersPage> {
           buttonText = 'Request Sent';
           onPressed = null;
         } else if (following.contains(email)) {
-          buttonText = 'Following';
+          buttonText = 'Connected';
           onPressed = null;
         } else {
-          buttonText = 'Follow';
+          buttonText = 'Connect';
           onPressed = () {
             _sendFollowRequest(email);
           };
@@ -2951,12 +2964,14 @@ class _TravelersPageState extends State<TravelersPage> {
       await _firestore.collection('Users').doc(currentUserDoc.id).update({
         'followRequests': FieldValue.arrayRemove([requesterEmail]), // Remove from followRequests
         'followers': FieldValue.arrayUnion([requesterEmail]), // Add to followers
+        'following': FieldValue.arrayUnion([requesterEmail]), // Add to following
       });
 
       // Update the requester's document
       await _firestore.collection('Users').doc(requesterDoc.id).update({
         'pendingApprovals': FieldValue.arrayRemove([currentUserEmail]), // Remove from pendingApprovals
         'following': FieldValue.arrayUnion([currentUserEmail]), // Add to following
+        'followers': FieldValue.arrayUnion([currentUserEmail]), // Add to followers
         'notifications': FieldValue.arrayUnion([
           '$currentUserEmail has accepted your follow request! You are now following $currentUserEmail. ($formattedTimestamp)',
         ]), // Add notification to the requester's list
@@ -4041,16 +4056,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              _buildFollowItem(
-                                count: followers.length,
-                                label: 'Followers',
-                                onTap: () => _showUserListDialog('Followers', followers),
-                              ),
-                              Container(height: 30, width: 1, color: Colors.grey[400]),
+                              // Container(height: 30, width: 1, color: Colors.grey[400]),
                               _buildFollowItem(
                                 count: following.length,
-                                label: 'Following',
-                                onTap: () => _showUserListDialog('Following', following),
+                                label: 'Connections',
+                                onTap: () => _showUserListDialog('Connections', following),
                               ),
                             ],
                           ),
@@ -4980,7 +4990,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       rethrow;
     }
   }
-  
+
+
   Future<void> _fetchUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
