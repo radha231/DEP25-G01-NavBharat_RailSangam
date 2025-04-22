@@ -214,7 +214,7 @@ class _LoginPageState extends State<LoginPage> {
           for (var doc in querySnapshot.docs) {
             final journeyData = doc.data();
             final journeyDate = journeyData['travel_date'] as String?;
-
+            __currentStation = journeyData['current_station'] as String?;
             if (journeyDate != null) {
               // Parse dates for comparison
               final List<int> journeyDateParts = journeyDate.split('-')
@@ -843,7 +843,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
   }
 
   // Keep this function unchanged
-  Future<void> showNextStationNotification(Train selectedTrain) async {
+  Future<void> showNextStationNotification(Train selectedTrain, String emailId) async {
     print('showNextStationNotification called');
     if (selectedTrain.stations.isNotEmpty) {
       String stationName = selectedTrain.stations[0];
@@ -865,8 +865,25 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 
       // Remove the first station from the list
       selectedTrain.stations.removeAt(0);
+
+      // If there are more stations, update the current_station in Firestore
+      if (selectedTrain.stations.isNotEmpty) {
+        String nextStation = selectedTrain.stations[0];
+        FirebaseFirestore.instance
+            .collection('Journey')
+            .where('email_Id', isEqualTo: emailId)
+            .get()
+            .then((querySnapshot) {
+          for (var doc in querySnapshot.docs) {
+            doc.reference.update({'current_station': nextStation});
+          }
+        }).catchError((error) {
+          print("Error updating current_station: $error");
+        });
+      }
     }
   }
+
 }
 
 
@@ -908,7 +925,7 @@ class _HomePageState extends State<HomePage> {
       HomeScreen(),
       ProfilePage(emailId : this.emailId),
     ];
-    startLocationTracking();
+    startLocationTracking(this.emailId);
   }
 
   @override
@@ -917,8 +934,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  void startLocationTracking() {
-    /////////////////////////////////
+  void startLocationTracking(String emailId) {
     int fromIndex = -1;
     for (int i = 0; i < widget.selectedTrain.stations.length; i++) {
       if (widget.selectedTrain.stations[i] == fromStation) {
@@ -937,12 +953,12 @@ class _HomePageState extends State<HomePage> {
     _locationTimer = Timer.periodic(const Duration(minutes: 1), (timer) async {
       final position = await LocationService.getCurrentLocation();
       if (position != null) {
-        checkNearestStation(position);
+        checkNearestStation(position, emailId);
       }
     });
   }
 
-  void checkNearestStation(Position position) {
+  void checkNearestStation(Position position, String emailId) {
 
     String coordinates = widget.selectedTrain.coordinates[currentStationIndex];
     __currentStation = widget.selectedTrain.stations[0];
@@ -967,7 +983,7 @@ class _HomePageState extends State<HomePage> {
 
       if (trainSocialAppState != null) {
         currentStationIndex++;
-        trainSocialAppState.showNextStationNotification(widget.selectedTrain);
+        trainSocialAppState.showNextStationNotification(widget.selectedTrain, emailId);
       }
     }
   }
@@ -4964,8 +4980,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       rethrow;
     }
   }
-
-
+  
   Future<void> _fetchUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
