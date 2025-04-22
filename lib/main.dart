@@ -4884,7 +4884,43 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
       await user.reauthenticateWithCredential(credential);
 
-      // Step 1: Delete from "Users" collection
+      // Step 1: Remove email from other users' follow-related arrays
+      print("Removing email from other users' follow lists");
+
+      // Remove from followRequests arrays
+      final followRequestsQuery = await firestore
+          .collection('Users')
+          .where('followRequests', arrayContains: emailId)
+          .get();
+      for (var doc in followRequestsQuery.docs) {
+        await doc.reference.update({
+          'followRequests': FieldValue.arrayRemove([emailId])
+        });
+      }
+
+      // Remove from following arrays
+      final followingQuery = await firestore
+          .collection('Users')
+          .where('following', arrayContains: emailId)
+          .get();
+      for (var doc in followingQuery.docs) {
+        await doc.reference.update({
+          'following': FieldValue.arrayRemove([emailId])
+        });
+      }
+
+      // Remove from followers arrays
+      final followersQuery = await firestore
+          .collection('Users')
+          .where('followers', arrayContains: emailId)
+          .get();
+      for (var doc in followersQuery.docs) {
+        await doc.reference.update({
+          'followers': FieldValue.arrayRemove([emailId])
+        });
+      }
+
+      // Step 2: Delete from "Users" collection
       final usersQuery = await firestore
           .collection('Users')
           .where('email_Id', isEqualTo: emailId)
@@ -4893,7 +4929,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         await doc.reference.delete();
       }
 
-      // Step 2: Delete from "chats"
+      // Step 3: Delete from "chats"
       final chatsFromQuery = await firestore
           .collection('chats')
           .where('from_email', isEqualTo: emailId)
@@ -4910,7 +4946,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         await doc.reference.delete();
       }
 
-      // Step 3: Delete from "Journey"
+      // Step 4: Delete from "Journey"
       final journeyQuery = await firestore
           .collection('Journey')
           .where('email_id', isEqualTo: emailId)
@@ -4919,7 +4955,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         await doc.reference.delete();
       }
 
-      // Step 4: Delete Firebase Auth account
+      // Step 5: Delete Firebase Auth account
       await user.delete();
 
       print("Account deleted successfully.");
