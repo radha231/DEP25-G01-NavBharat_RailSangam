@@ -649,7 +649,7 @@ class _LoginPageState extends State<LoginPage> {
                                       SharedPreferences.getInstance().then((prefs) {
                                         prefs.setString('user_email', emailId);
                                       });
-
+                                      __currentStation = selectedFromStation;
                                       // Navigate to Home Page after successful Firestore entry
                                       print('Navigating to HomePage');
                                       Navigator.pushReplacement(
@@ -964,6 +964,7 @@ class _HomePageState extends State<HomePage> {
     _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       print('KKKKKKK');
       final position = await LocationService.getCurrentLocation();
+      print(position);
       if (position != null) {
         checkNearestStation(position);
       }
@@ -990,12 +991,14 @@ class _HomePageState extends State<HomePage> {
     }
     print("Distance");
     print(distanceRemaining);
-    if (currentStationIndex < widget.selectedTrain.stations.length - 1 && distanceRemaining < 15) {
+    // print(currentStationIndex);
+    // print()
+    if (distanceRemaining < 15) {
       final trainSocialAppState = context.findAncestorStateOfType<_TrainSocialAppState>();
-
+      print("LLLL");
       if (trainSocialAppState != null) {
         currentStationIndex++;
-
+        print("jhfkg");
         trainSocialAppState.showNextStationNotification(widget.selectedTrain);
       }
     }
