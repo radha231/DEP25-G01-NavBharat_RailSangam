@@ -855,6 +855,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
     print('showNextStationNotification called');
     if (selectedTrain.stations.isNotEmpty) {
       String stationName = selectedTrain.stations[0];
+      __currentStation= selectedTrain.stations[0];
       const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
         'next_station_channel',
         'Next Station Notifications',
@@ -873,6 +874,7 @@ class _TrainSocialAppState extends State<TrainSocialApp> {
 
       // Remove the first station from the list
       selectedTrain.stations.removeAt(0);
+
       /// RRRRRRRR
       final prefs = await SharedPreferences.getInstance();
       final emailId = prefs.getString('user_email') ?? "";
@@ -1695,6 +1697,7 @@ class _TravelersPageState extends State<TravelersPage> {
           // print(all_stations);
           if(response.payload == __currentStation){
             print("AAAAA");
+            // __currentStation = widget.
             Navigator.push(
               navigatorKey.currentContext!, // Use the navigator key
               MaterialPageRoute(
