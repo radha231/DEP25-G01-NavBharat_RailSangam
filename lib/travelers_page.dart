@@ -89,6 +89,15 @@ class _TravelersPageState extends State<TravelersPage> {
   late SharedPreferences _prefs;
 
 
+  // Add these variables to track filter changes
+  bool _filtersChanged = false;
+  Map<String, String?> _currentFilters = {
+    'profession': null,
+    'ageGroup': null,
+    'gender': null,
+    'interest': null,
+  };
+
 
   @override
   void initState() {
@@ -352,7 +361,14 @@ class _TravelersPageState extends State<TravelersPage> {
 
         for (var doc in usersSnapshot.docs) {
           final userData = doc.data() as Map<String, dynamic>;
-          users.add(userData);
+          // In the _fetchSuggestedUsers method, modify the users.add part:
+          users.add({
+            ...userData,
+            'email_Id': userData['email_Id'],
+            'Name': userData['Name'],
+            'Profession': userData['Profession'],
+            'avatarUrl': userData['avatarUrl'],
+          });
         }
       }
 
@@ -361,9 +377,20 @@ class _TravelersPageState extends State<TravelersPage> {
         _followRequestStates[user['email_Id']] = pendingApprovals.contains(user['email_Id']);
       }
 
+      users.sort((a, b) {
+        final aEmail = a['email_Id'];
+        final bEmail = b['email_Id'];
+        final aIsConnected = following.contains(aEmail);
+        final bIsConnected = following.contains(bEmail);
+
+        if (aIsConnected && !bIsConnected) return -1;
+        if (!aIsConnected && bIsConnected) return 1;
+        return 0;
+      });
+
       setState(() {
         suggestedUsers = users;
-        _allSuggestedUsers = List.from(users); // Store the original list
+        _allSuggestedUsers = List.from(users);
         _isLoading = false;
       });
     } catch (e) {
@@ -380,10 +407,7 @@ class _TravelersPageState extends State<TravelersPage> {
 // Send follow request
   Future<void> _sendFollowRequest(String targetEmail) async {
     try {
-      // Disable the button and update the state
-      setState(() {
-        _followRequestStates[targetEmail] = true; // Mark request as sent
-      });
+
 
       // Get the current user's email
       final currentUserEmail = emailId;
@@ -422,6 +446,9 @@ class _TravelersPageState extends State<TravelersPage> {
         'followRequests': FieldValue.arrayUnion([currentUserEmail]),
       });
 
+      setState(() {
+        _followRequestStates[targetEmail] = true; // Mark request as sent
+      });
       // Show a success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Follow request sent to $targetEmail')),
@@ -618,91 +645,172 @@ class _TravelersPageState extends State<TravelersPage> {
 
 // Updated filter row with better styling
   Widget _buildFilterRow() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedProfession,
-                  hint: 'Profession',
-                  items: professions,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedProfession = newValue;
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedAgeGroup,
-                  hint: 'Age Group',
-                  items: ageGroups,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedAgeGroup = newValue;
-                    });
-                  },
-                ),
+    return StatefulBuilder(
+      builder: (BuildContext context, StateSetter setState) {
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: Offset(0, 2),
               ),
             ],
           ),
-          SizedBox(height: 10),
-          Row(
+          child: Column(
             children: [
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedGender,
-                  hint: 'Gender',
-                  items: genders,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedGender = newValue;
-                    });
-                  },
-                ),
+              // First Row - Profession and Age Group
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      value: selectedProfession,
+                      hint: 'Profession',
+                      items: professions,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedProfession = newValue;
+                        });
+                      },
+                      filterKey: 'profession',
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      value: selectedAgeGroup,
+                      hint: 'Age Group',
+                      items: ageGroups,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedAgeGroup = newValue;
+                        });
+                      },
+                      filterKey: 'ageGroup',
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 10),
-              Expanded(
-                child: _buildFilterDropdown(
-                  value: selectedInterest,
-                  hint: 'Interest',
-                  items: interestList,
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      selectedInterest = newValue;
-                    });
-                  },
-                ),
+              SizedBox(height: 10),
+              // Second Row - Gender and Interest
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      value: selectedGender,
+                      hint: 'Gender',
+                      items: genders,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedGender = newValue;
+                        });
+                      },
+                      filterKey: 'gender',
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: _buildFilterDropdown(
+                      value: selectedInterest,
+                      hint: 'Interest',
+                      items: interestList,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedInterest = newValue;
+                        });
+                      },
+                      filterKey: 'interest',
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 10),
+              // Third Row - Search and Clear Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 45,
+                      decoration: BoxDecoration(
+                        gradient: _filtersChanged
+                            ? LinearGradient(colors: [Colors.orange, Colors.deepOrange])
+                            : buttonGradient,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_filtersChanged ? Colors.orange : Color(0xFF4A89DC)).withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _applyFilters,
+                        child: Text(
+                          _filtersChanged ? 'Apply Filters' : 'Search',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      height: 45,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Color(0xFF4A89DC)),
+                      ),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: _clearFilters,
+                        child: Text(
+                          'Clear Filters',
+                          style: TextStyle(
+                            color: Color(0xFF4A89DC),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
+// Remove the separate _buildFilterButtons() method since we've moved it into _buildFilterRow()
   Widget _buildFilterDropdown({
     required String? value,
     required String hint,
     required List<String> items,
     required Function(String?) onChanged,
+    required String filterKey,
   }) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12),
@@ -718,7 +826,13 @@ class _TravelersPageState extends State<TravelersPage> {
         underline: SizedBox(),
         icon: Icon(Icons.arrow_drop_down, color: Color(0xFF4A89DC)),
         style: TextStyle(color: Colors.black87, fontSize: 14),
-        onChanged: onChanged,
+        onChanged: (newValue) {
+          // Only update the current filters without triggering a rebuild
+          _currentFilters[filterKey] = newValue;
+          _filtersChanged = true;
+          // Update the dropdown value without setState
+          onChanged(newValue);
+        },
         items: items.map<DropdownMenuItem<String>>((String value) {
           return DropdownMenuItem<String>(
             value: value,
@@ -728,103 +842,33 @@ class _TravelersPageState extends State<TravelersPage> {
       ),
     );
   }
-
-  // Updated filter buttons with better styling
-  Widget _buildFilterButtons() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 5),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 45,
-              decoration: BoxDecoration(
-                gradient: buttonGradient,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0xFF4A89DC).withOpacity(0.3),
-                    blurRadius: 6,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: _applyFilters,
-                child: Text(
-                  'Search',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: 45,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Color(0xFF4A89DC)),
-              ),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: _clearFilters,
-                child: Text(
-                  'Clear Filters',
-                  style: TextStyle(
-                    color: Color(0xFF4A89DC),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _applyFilters() {
+    if (!_filtersChanged &&
+        selectedProfession == null &&
+        selectedAgeGroup == null &&
+        selectedGender == null &&
+        selectedInterest == null) {
+      return; // No filters selected and no changes made
+    }
+
     setState(() {
+      _isLoading = true;
       suggestedUsers = _allSuggestedUsers.where((user) {
-        bool matchesProfession = selectedProfession == null || user['Profession'] == selectedProfession;
-        bool matchesAgeGroup = selectedAgeGroup == null || user['Age Group'] == selectedAgeGroup;
-        bool matchesGender = selectedGender == null || user['Gender'] == selectedGender;
-
-        // Interest filter: check if selectedInterest exists in user's Interests list
-        bool matchesInterest = selectedInterest == null ||
-            (user['Interests'] != null && (user['Interests'] as List).contains(selectedInterest));
-
-        // Debug logs
-        print('User: ${user['email_id']}');
-        print('Profession: ${user['Profession']}, Selected: $selectedProfession, Matches: $matchesProfession');
-        print('AgeGroup: ${user['Age Group']}, Selected: $selectedAgeGroup, Matches: $matchesAgeGroup');
-        print('Gender: ${user['Gender']}, Selected: $selectedGender, Matches: $matchesGender');
-        print('Interests: ${user['Interests']}, Selected: $selectedInterest, Matches: $matchesInterest');
-        print('---');
+        bool matchesProfession = _currentFilters['profession'] == null ||
+            user['Profession'] == _currentFilters['profession'];
+        bool matchesAgeGroup = _currentFilters['ageGroup'] == null ||
+            user['Age Group'] == _currentFilters['ageGroup'];
+        bool matchesGender = _currentFilters['gender'] == null ||
+            user['Gender'] == _currentFilters['gender'];
+        bool matchesInterest = _currentFilters['interest'] == null ||
+            (user['Interests'] != null &&
+                (user['Interests'] as List).contains(_currentFilters['interest']));
 
         return matchesProfession && matchesAgeGroup && matchesGender && matchesInterest;
       }).toList();
+      _filtersChanged = false;
+      _isLoading = false;
     });
-
-    print('Filtered Users: ${suggestedUsers.length}');
   }
 // Add a method to clear filters
   void _clearFilters() {
@@ -833,11 +877,16 @@ class _TravelersPageState extends State<TravelersPage> {
       selectedAgeGroup = null;
       selectedGender = null;
       selectedInterest = null;
-      suggestedUsers = List.from(_allSuggestedUsers); // Reset to the original list
+      _currentFilters = {
+        'profession': null,
+        'ageGroup': null,
+        'gender': null,
+        'interest': null,
+      };
+      suggestedUsers = List.from(_allSuggestedUsers);
+      _filtersChanged = false;
     });
   }
-
-
   Widget _buildSuggestionTile({
     required String? avatarUrl,
     required String? name,
@@ -849,105 +898,50 @@ class _TravelersPageState extends State<TravelersPage> {
       );
     }
 
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance
-          .collection('Users')
-          .where('email_Id', isEqualTo: emailId)
-          .limit(1)
-          .get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return ListTile(
-            leading: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[200],
-              ),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            title: Text(name ?? 'Unknown'),
-            subtitle: Text(email),
-            trailing: CircularProgressIndicator(),
-          );
-        }
+    // Check if user is already connected
+    final isConnected = following.contains(email);
+    final isRequestSent = _followRequestStates[email] ?? false;
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return ListTile(
-            leading: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[200],
-              ),
-              child: Icon(Icons.error),
+    return ListTile(
+      leading: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.grey[200],
+        ),
+        child: ClipOval(
+          child: avatarUrl != null && avatarUrl.isNotEmpty
+              ? SvgPicture.network(
+            avatarUrl,
+            fit: BoxFit.cover,
+            placeholderBuilder: (context) => Center(
+              child: CircularProgressIndicator(),
             ),
-            title: Text(name ?? 'Unknown'),
-            subtitle: Text(email),
-            trailing: Text('Error'),
-          );
-        }
-
-        final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-        final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
-        final List<dynamic> following = userData['following'] ?? [];
-
-        String buttonText;
-        VoidCallback? onPressed;
-
-        if (pendingApprovals.contains(email)) {
-          buttonText = 'Request Sent';
-          onPressed = null;
-        } else if (following.contains(email)) {
-          buttonText = 'Connected';
-          onPressed = null;
-        } else {
-          buttonText = 'Connect';
-          onPressed = () {
-            _sendFollowRequest(email);
-          };
-        }
-
-        return ListTile(
-          leading: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey[200],
-            ),
-            child: ClipOval(
-              child: avatarUrl != null && avatarUrl.isNotEmpty
-                  ? SvgPicture.network(
-                avatarUrl,
-                fit: BoxFit.cover,
-                placeholderBuilder: (context) => Center(
-                  child: CircularProgressIndicator(),
-                ),
-              )
-                  : Icon(Icons.person, size: 28),
-            ),
-          ),
-          title: Text(name ?? 'Unknown'),
-          subtitle: Text(email),
-          trailing: ElevatedButton(
-            onPressed: onPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: onPressed == null ? Colors.grey : Colors.blue,
-            ),
-            child: Text(
-              buttonText,
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        );
-      },
+          )
+              : Icon(Icons.person, size: 28),
+        ),
+      ),
+      title: Text(name ?? 'Unknown'),
+      subtitle: Text(email),
+      trailing: ElevatedButton(
+        onPressed: isConnected || isRequestSent
+            ? null
+            : () => _sendFollowRequest(email),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isConnected
+              ? Colors.green
+              : (isRequestSent ? Colors.grey : Colors.blue),
+        ),
+        child: Text(
+          isConnected
+              ? 'Connected'
+              : (isRequestSent ? 'Request Sent' : 'Connect'),
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
     );
   }
-
-
   Future<Map<String, dynamic>> _fetchUserDetails(String emailId) async {
     try {
       final QuerySnapshot userSnapshot = await _firestore
@@ -1047,7 +1041,6 @@ class _TravelersPageState extends State<TravelersPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1062,8 +1055,8 @@ class _TravelersPageState extends State<TravelersPage> {
           ),
         ),
         title: Container(
-          alignment: Alignment.centerLeft, // Align title to the left
-          padding: EdgeInsets.only(left: 16), // Add left padding
+          alignment: Alignment.centerLeft,
+          padding: EdgeInsets.only(left: 16),
           child: Text(
             'Travellers',
             style: TextStyle(
@@ -1073,7 +1066,7 @@ class _TravelersPageState extends State<TravelersPage> {
             ),
           ),
         ),
-        centerTitle: false, // Disable center alignment
+        centerTitle: false,
         actions: [
           _buildHoverableIconButton(
             icon: Icons.notifications,
@@ -1183,96 +1176,146 @@ class _TravelersPageState extends State<TravelersPage> {
             ),
           ),
 
+          // Divider with subtle styling
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              'Travellers Suggestions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Divider(
+              color: Colors.grey[300],
+              thickness: 1,
+              height: 1,
             ),
           ),
 
-          // Add the filter row
-          _buildFilterRow(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
 
-          // Add the filter buttons
-          _buildFilterButtons(),
+            children: [
+              Padding(
 
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  'Travellers Suggestions',
+                  style: TextStyle(
+
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              _buildFilterRow(), // Original unchanged
+            ],
+          ),
+          // User list with NotificationListener to prevent unnecessary rebuilds
           Expanded(
-            child: FutureBuilder<QuerySnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('Users')
-                  .where('email_Id', isEqualTo: emailId) // Fetch the current user's data
-                  .limit(1)
-                  .get(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('Error loading user data'));
-                }
-
-                final userData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-                final List<dynamic> following = userData['following'] ?? [];
-                final List<dynamic> pendingApprovals = userData['pendingApprovals'] ?? [];
-
-                // Sort the suggestedUsers list
-                suggestedUsers.sort((a, b) {
-                  final aEmail = a['email_Id'];
-                  final bEmail = b['email_Id'];
-
-                  bool aFollowing = following.contains(aEmail);
-                  bool bFollowing = following.contains(bEmail);
-                  bool aPending = pendingApprovals.contains(aEmail);
-                  bool bPending = pendingApprovals.contains(bEmail);
-
-                  if (aFollowing && !bFollowing) return -1; // a should come first
-                  if (!aFollowing && bFollowing) return 1;  // b should come first
-                  if (aPending && !bPending) return -1;     // a should come first
-                  if (!aPending && bPending) return 1;      // b should come first
-                  return 0; // Keep original order if all conditions are equal
-                });
-
-                return ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: suggestedUsers.length,
-                  itemBuilder: (context, index) {
-                    final user = suggestedUsers[index];
-                    return FutureBuilder<Map<String, dynamic>>(
-                      future: _fetchUserDetails(user['email_Id']),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return Center(child: CircularProgressIndicator());
-                        } else if (snapshot.hasError) {
-                          return ListTile(
-                            title: Text('Error loading user details'),
-                          );
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return ListTile(
-                            title: Text('User details not found'),
-                          );
-                        } else {
-                          final userDetails = snapshot.data!;
-                          return _buildSuggestionTile(
-                            avatarUrl: userDetails['avatarUrl'] as String?,
-                            name: userDetails['Name'] as String?,
-                            email: user['email_Id'] as String?,
-                          );
-                        }
-                      },
-                    );
-                  },
-                );
-              },
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 0.8,
+                ),
+                itemCount: suggestedUsers.length,
+                itemBuilder: (context, index) {
+                  final user = suggestedUsers[index];
+                  return _buildUserGridCard(user);
+                },
+              ),
             ),
-          )
-          ,
+          ),
         ],
+      ),
+    );
+  }
+  Widget _buildUserGridCard(Map<String, dynamic> user) {
+    final email = user['email_Id'];
+    final isConnected = following.contains(email);
+    final isRequestSent = _followRequestStates[email] ?? false;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey[200],
+                  ),
+                  child: ClipOval(
+                    child: user['avatarUrl'] != null && user['avatarUrl'].isNotEmpty
+                        ? SvgPicture.network(
+                      user['avatarUrl'],
+                      fit: BoxFit.cover,
+                      placeholderBuilder: (context) => Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                        : Icon(Icons.person, size: 35),
+                  ),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  user['Name'] ?? 'Unknown',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4),
+                Text(
+                  user['Profession'] ?? '',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isConnected || isRequestSent
+                    ? null
+                    : () => _sendFollowRequest(email),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isConnected
+                      ? Colors.green
+                      : (isRequestSent ? Colors.grey : Colors.blue),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                ),
+                child: Text(
+                  isConnected
+                      ? 'Connected'
+                      : (isRequestSent ? 'Request Sent' : 'Connect'),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1475,6 +1518,10 @@ class _TravelersPageState extends State<TravelersPage> {
         email: currentUserEmail, // This is the sender (current user)
         targetEmail: requesterEmail, // This is who should receive the notification
       );
+      setState(() {
+        following.add(requesterEmail);
+        _followRequestStates.remove(requesterEmail);
+      });
     } catch (e) {
       print('[DEBUG] Error accepting follow request: $e');
       ScaffoldMessenger.of(context).showSnackBar(
