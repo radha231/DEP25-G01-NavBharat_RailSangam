@@ -4648,20 +4648,21 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   void _editProfile() {
     // Controllers for text fields
     final TextEditingController nameController = TextEditingController();
-    final TextEditingController professionController = TextEditingController();
+    // final TextEditingController professionController = TextEditingController();
 
     // Values for dropdowns
     String? selectedGender;
     String? selectedAgeGroup;
-
+    String? selectedProfession;
     // Options for dropdowns
     final List<String> genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
     final List<String> ageGroupOptions = ['18-24', '25-34', '35-44', '45-54', '55+'];
+    final List<String> professionOptions = ['Student', 'Engineer', 'Doctor', 'Artist', 'Other'];
 
     // Track if at least one field is filled
     bool isAtLeastOneFieldFilled() {
       return nameController.text.trim().isNotEmpty ||
-          professionController.text.trim().isNotEmpty ||
+          selectedProfession != null ||
           selectedGender != null ||
           selectedAgeGroup != null;
     }
@@ -4733,15 +4734,25 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                     ),
                     SizedBox(height: 16),
 
-                    TextField(
-                      controller: professionController,
-                      decoration: InputDecoration(labelText: 'Profession'),
-                      onChanged: (value) {
+                    Text('Profession:'),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      hint: Text('Select Profession'),
+                      value: selectedProfession,
+                      onChanged: (String? newValue) {
                         setState(() {
+                          selectedProfession = newValue;
                           canSubmit = isAtLeastOneFieldFilled();
                         });
                       },
+                      items: professionOptions.map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                     ),
+                    SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -4789,8 +4800,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                         updatedData['Name'] = nameController.text.trim();
                       }
 
-                      if (professionController.text.trim().isNotEmpty) {
-                        updatedData['Profession'] = professionController.text.trim();
+                      if (selectedProfession != null) {
+                        updatedData['Profession'] = selectedProfession;
                       }
 
                       if (selectedGender != null) {
