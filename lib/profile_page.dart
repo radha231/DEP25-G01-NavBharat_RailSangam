@@ -7,7 +7,13 @@ import 'package:flutter_svg/svg.dart';
 
 class ProfilePage extends StatefulWidget {
   final String emailId;
-  const ProfilePage({Key? key, required this.emailId}) : super(key: key);
+  final VoidCallback? onProfileUpdated; // Add this callback
+
+  const ProfilePage({
+    Key? key,
+    required this.emailId,
+    this.onProfileUpdated, // Add this parameter
+  }) : super(key: key);
 
   @override
   _ProfilePageState createState() => _ProfilePageState(emailId: emailId);
@@ -41,40 +47,24 @@ class _ProfilePageState extends State<ProfilePage> {
           .get()
           .timeout(const Duration(seconds: 10));
 
-      if (snapshot.docs.isEmpty) {
-        setState(() {
-          name = 'New User';
-          interests = ['Add your interests'];
-          currentAvatarUrl = 'assets/images/default_avatar.svg';
-          // about = 'Tell us about yourself';
-          followers = [];
-          following = [];
-        });
-        return;
-      }
+      if (snapshot.docs.isEmpty) return;
 
       final DocumentSnapshot document = snapshot.docs.first;
       final userData = document.data() as Map<String, dynamic>? ?? {};
 
+      // Use setState to ensure UI updates
       setState(() {
         name = userData['Name']?.toString() ?? 'User';
         interests = List<String>.from(userData['Interests'] ?? ['Add your interests']);
-        currentAvatarUrl = userData['avatarUrl']?.toString() ?? 'assets/images/default_avatar.svg';
-        // about = userData['about']?.toString() ?? 'Tell us about yourself';
+            currentAvatarUrl = userData['avatarUrl']?.toString() ?? 'assets/images/default_avatar.svg';
         followers = List<String>.from(userData['followers'] ?? []);
         following = List<String>.from(userData['following'] ?? []);
         profession = userData['Profession']?.toString();
         ageGroup = userData['Age Group']?.toString();
         gender = userData['Gender']?.toString();
       });
-
     } catch (e) {
-      setState(() {
-        name = 'User';
-        interests = ['Add your interests'];
-        currentAvatarUrl = 'assets/images/default_avatar.svg';
-        // about = 'Tell us about yourself';
-      });
+      print('Error fetching user data: $e');
     }
   }
 
@@ -82,7 +72,25 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _fetchUserData();
-    // aboutController.text = about;
+    _setupProfileListener(); // Add this
+  }
+
+  void _setupProfileListener() {
+    FirebaseFirestore.instance
+        .collection('Users')
+        .where('email_Id', isEqualTo: emailId)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.docs.isNotEmpty) {
+        final userData = snapshot.docs.first.data();
+        if (mounted) {
+          setState(() {
+            name = userData['Name']?.toString() ?? 'User';
+            // Update other fields similarly...
+          });
+        }
+      }
+    });
   }
 
   Future<void> _showUserListDialog(String title, List<String> users) async {
@@ -442,16 +450,21 @@ class _ProfilePageState extends State<ProfilePage> {
                       right: 16,
                       child: IconButton(
                         icon: const Icon(Icons.settings, color: Colors.white, size: 28),
-                        onPressed: () {
-                          Navigator.push(
+                        // In the build method where settings button is:
+                        onPressed: () async {
+                          final updated = await Navigator.push<bool>(
                             context,
                             MaterialPageRoute(
                               builder: (context) => AccountSettingsScreen(
-                                onBack: () => Navigator.pop(context),
+                                onBack: () => Navigator.pop(context, true),
                                 onLogout: () {},
                               ),
                             ),
                           );
+
+                          if (updated == true) {
+                            await _fetchUserData(); // Force refresh
+                          }
                         },
                       ),
                     ),
