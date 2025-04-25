@@ -408,14 +408,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: () => Navigator.pop(context, false),
                   child: Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: canSubmit ? () async {
-                    // Show confirmation dialog
                     bool confirmChanges = await showDialog(
                       context: context,
                       builder: (BuildContext context) {
@@ -483,6 +480,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                             SnackBar(content: Text('Error updating profile: ${e.toString()}'))
                         );
                       }
+
+                      Navigator.pop(context, true); // Return true for success
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Profile updated successfully!'))
+                      );
                     }
                   } : null, // Disable button if no fields are filled
                   child: Text('Edit'),
@@ -759,9 +761,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       appBar: AppBar(
         backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
         elevation: 0,
+        // In AppBar of AccountSettingsScreen
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
-          onPressed: widget.onBack,
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            widget.onBack(); // This will trigger the refresh
+            Navigator.pop(context, true); // Return true to indicate possible changes
+          },
         ),
         title: Text(
           'Settings',
