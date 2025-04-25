@@ -24,6 +24,7 @@ import 'package:flutter_local_notifications_platform_interface/flutter_local_not
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 String? __currentStation;
+String? __from_station;
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // late List<String> all_stations;
 
@@ -233,6 +234,7 @@ class _LoginPageState extends State<LoginPage> {
                 final coachNumber = journeyData['coach_number'] as String;
                 final fromStation = journeyData['from_station'] as String?;
                 __currentStation = journeyData['current_station'] as String?;
+                __from_station = journeyData['from_station'] as String?;
                 final toStation = journeyData['to_station'] as String?;
 
                 // Fetch train details
@@ -650,6 +652,7 @@ class _LoginPageState extends State<LoginPage> {
                                         prefs.setString('user_email', emailId);
                                       });
                                       __currentStation = selectedFromStation;
+                                      __from_station = selectedFromStation;
                                       // Navigate to Home Page after successful Firestore entry
                                       print('Navigating to HomePage');
                                       Navigator.pushReplacement(
@@ -1315,7 +1318,7 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'From: ${widget.selectedTrain.stations.first}',
+                                'From: ${__from_station}',
                                 style: const TextStyle(fontSize: 13),
                               ),
                               Text(
