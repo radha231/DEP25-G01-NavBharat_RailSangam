@@ -74,14 +74,14 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                     ),
                     // TrainAssist quote
                     // In the FlexibleSpaceBar background section, update the Positioned widget for the TrainAssist quote
-                    Positioned(
+                     Positioned(
                       top: 70,
                       left: 0,
                       right: 0,
                       child: Column(
                         children: [
                           Text(
-                            "TrainAssist",
+                            "NavBharat RailSangam",
                             style: TextStyle(
                               fontSize: 24, // Increased from 22
                               fontWeight: FontWeight.bold,
@@ -91,7 +91,7 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                                 Shadow(
                                   color: Colors.black.withOpacity(0.7), // Increased shadow opacity
                                   offset: const Offset(1.5, 1.5), // Slightly larger offset
-                                  blurRadius: 4, // Increased blur radius
+                                  blurRadius: 40, // Increased blur radius
                                 ),
                               ],
                             ),
@@ -102,13 +102,14 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                             // Add a semi-transparent background for better readability
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.2),
+
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              "Journey smoother, destinations closer",
+                              "Stations with Stories, Journeys with Meaning.",
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 16, // Increased from 15
+                                fontSize: 14, // Increased from 15
                                 fontWeight: FontWeight.w500, // Added medium weight
                                 fontStyle: FontStyle.italic,
                                 color: Colors.white, // Full opacity instead of 0.9
@@ -123,7 +124,7 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 14), // Increased from 12
+                          const SizedBox(height: 13), // Increased from 12
                           Container(
                             width: 60, // Slightly wider
                             height: 3, // Slightly thicker
