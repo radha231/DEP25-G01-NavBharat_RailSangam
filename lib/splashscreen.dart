@@ -37,10 +37,10 @@ class _SplashScreenState extends State<SplashScreen> {
               children: [
                 // App logo
                 Container(
-                  height: 180,
-                  width: 180,
+                  height: 300,
+                  width: 300, // Changed from 180 to create a rectangular shape
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(12), // Rounded corners instead of circle
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.withOpacity(0.5),
@@ -50,7 +50,8 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                     ],
                   ),
-                  child: ClipOval(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12), // Matching border radius for the image clip
                     child: Image.asset(
                       'assets/images/icon.jpg',
                       fit: BoxFit.cover,
