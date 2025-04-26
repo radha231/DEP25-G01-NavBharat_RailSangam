@@ -1010,29 +1010,29 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 ),
               ),
             ),
-
-            // Theme toggle - now connected to ThemeProvider
-            SwitchListTile(
-              title: Text(
-                'Dark Mode',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-              subtitle: Text(
-                isDarkMode ? 'Dark theme enabled' : 'Light theme enabled',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 13,
-                ),
-              ),
-              value: isDarkMode,
-              activeColor: Colors.blue[600],
-              onChanged: (value) {
-                // Toggle theme using the provider
-                themeProvider.toggleTheme();
-              },
-            ),
+            //
+            // // Theme toggle - now connected to ThemeProvider
+            // SwitchListTile(
+            //   title: Text(
+            //     'Dark Mode',
+            //     style: TextStyle(
+            //       color: isDarkMode ? Colors.white : Colors.black,
+            //     ),
+            //   ),
+            //   subtitle: Text(
+            //     isDarkMode ? 'Dark theme enabled' : 'Light theme enabled',
+            //     style: TextStyle(
+            //       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            //       fontSize: 13,
+            //     ),
+            //   ),
+            //   value: isDarkMode,
+            //   activeColor: Colors.blue[600],
+            //   onChanged: (value) {
+            //     // Toggle theme using the provider
+            //     themeProvider.toggleTheme();
+            //   },
+            // ),
 
             // Text size slider
             ListTile(
@@ -1069,215 +1069,215 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             const Divider(),
 
             // Language selection tile - with non-nullable colors
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.teal[900]! : Colors.teal[50]!, // Added ! to handle nullable
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.language,
-                  color: isDarkMode ? Colors.teal[300]! : Colors.teal[600]!, // Added ! to handle nullable
-                ),
-              ),
-              title: Text(
-                'Language', // Will be replaced with translation later
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-              subtitle: Text(
-                'English', // Placeholder for current language
-                style: TextStyle(
-                  color: isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
-                  fontSize: 13,
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Show language selection UI when tapped
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => Container(
-                    height: MediaQuery.of(context).size.height * 0.7,
-                    decoration: BoxDecoration(
-                      color: isDarkMode ? const Color(0xFF202020) : Colors.white,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 10,
-                          spreadRadius: 0,
-                        )
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Handle bar
-                        Container(
-                          margin: const EdgeInsets.only(top: 12),
-                          height: 4,
-                          width: 40,
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        // Title
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'Select Language',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: isDarkMode ? Colors.white : Colors.black,
-                            ),
-                          ),
-                        ),
-                        // Language Grid
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: GridView.builder(
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 1.5,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
-                              ),
-                              itemCount: 6, // Six languages
-                              itemBuilder: (context, index) {
-                                // Define language options inline
-                                String code = '', name = '', nativeName = '';
-
-                                switch(index) {
-                                  case 0:
-                                    code = 'en';
-                                    name = 'English';
-                                    nativeName = 'English';
-                                    break;
-                                  case 1:
-                                    code = 'hi';
-                                    name = 'Hindi';
-                                    nativeName = 'हिन्दी';
-                                    break;
-                                  case 2:
-                                    code = 'bn';
-                                    name = 'Bengali';
-                                    nativeName = 'বাংলা';
-                                    break;
-                                  case 3:
-                                    code = 'pa';
-                                    name = 'Punjabi';
-                                    nativeName = 'ਪੰਜਾਬੀ';
-                                    break;
-                                  case 4:
-                                    code = 'te';
-                                    name = 'Telugu';
-                                    nativeName = 'తెలుగు';
-                                    break;
-                                  case 5:
-                                    code = 'mr';
-                                    name = 'Marathi';
-                                    nativeName = 'मराठी';
-                                    break;
-                                }
-
-                                final isSelected = code == 'en'; // Placeholder logic
-
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? isDarkMode ? Colors.teal[900]! : Colors.teal[50]! // Added ! to handle nullable
-                                        : isDarkMode ? const Color(0xFF303030) : Colors.grey[100]!, // Added ! to handle nullable
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? Colors.teal
-                                          : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: InkWell(
-                                    onTap: () {
-                                      // Just close the sheet for now
-                                      Navigator.pop(context);
-                                    },
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          nativeName,
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: isSelected
-                                                ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
-                                                : isDarkMode ? Colors.white : Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          name,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: isSelected
-                                                ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
-                                                : isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          Icon(
-                                            Icons.check_circle,
-                                            color: isDarkMode ? Colors.teal[200]! : Colors.teal[800]!, // Added ! to handle nullable
-                                            size: 20,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        // Cancel button
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 50),
-                              backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!, // Added ! to handle nullable
-                              foregroundColor: isDarkMode ? Colors.white : Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Cancel'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+            // ListTile(
+            //   leading: Container(
+            //     padding: const EdgeInsets.all(8),
+            //     decoration: BoxDecoration(
+            //       color: isDarkMode ? Colors.teal[900]! : Colors.teal[50]!, // Added ! to handle nullable
+            //       shape: BoxShape.circle,
+            //     ),
+            //     child: Icon(
+            //       Icons.language,
+            //       color: isDarkMode ? Colors.teal[300]! : Colors.teal[600]!, // Added ! to handle nullable
+            //     ),
+            //   ),
+            //   title: Text(
+            //     'Language', // Will be replaced with translation later
+            //     style: TextStyle(
+            //       color: isDarkMode ? Colors.white : Colors.black,
+            //     ),
+            //   ),
+            //   subtitle: Text(
+            //     'English', // Placeholder for current language
+            //     style: TextStyle(
+            //       color: isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
+            //       fontSize: 13,
+            //     ),
+            //   ),
+            //   trailing: const Icon(Icons.chevron_right),
+            //   onTap: () {
+            //     // Show language selection UI when tapped
+            //     showModalBottomSheet(
+            //       context: context,
+            //       isScrollControlled: true,
+            //       backgroundColor: Colors.transparent,
+            //       builder: (context) => Container(
+            //         height: MediaQuery.of(context).size.height * 0.7,
+            //         decoration: BoxDecoration(
+            //           color: isDarkMode ? const Color(0xFF202020) : Colors.white,
+            //           borderRadius: const BorderRadius.only(
+            //             topLeft: Radius.circular(20),
+            //             topRight: Radius.circular(20),
+            //           ),
+            //           boxShadow: [
+            //             BoxShadow(
+            //               color: Colors.black.withOpacity(0.2),
+            //               blurRadius: 10,
+            //               spreadRadius: 0,
+            //             )
+            //           ],
+            //         ),
+            //         child: Column(
+            //           children: [
+            //             // Handle bar
+            //             Container(
+            //               margin: const EdgeInsets.only(top: 12),
+            //               height: 4,
+            //               width: 40,
+            //               decoration: BoxDecoration(
+            //                 color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
+            //                 borderRadius: BorderRadius.circular(2),
+            //               ),
+            //             ),
+            //             // Title
+            //             Padding(
+            //               padding: const EdgeInsets.all(16.0),
+            //               child: Text(
+            //                 'Select Language',
+            //                 style: TextStyle(
+            //                   fontSize: 22,
+            //                   fontWeight: FontWeight.bold,
+            //                   color: isDarkMode ? Colors.white : Colors.black,
+            //                 ),
+            //               ),
+            //             ),
+            //             // Language Grid
+            //             Expanded(
+            //               child: Padding(
+            //                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            //                 child: GridView.builder(
+            //                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            //                     crossAxisCount: 2,
+            //                     childAspectRatio: 1.5,
+            //                     crossAxisSpacing: 16,
+            //                     mainAxisSpacing: 16,
+            //                   ),
+            //                   itemCount: 6, // Six languages
+            //                   itemBuilder: (context, index) {
+            //                     // Define language options inline
+            //                     String code = '', name = '', nativeName = '';
+            //
+            //                     switch(index) {
+            //                       case 0:
+            //                         code = 'en';
+            //                         name = 'English';
+            //                         nativeName = 'English';
+            //                         break;
+            //                       case 1:
+            //                         code = 'hi';
+            //                         name = 'Hindi';
+            //                         nativeName = 'हिन्दी';
+            //                         break;
+            //                       case 2:
+            //                         code = 'bn';
+            //                         name = 'Bengali';
+            //                         nativeName = 'বাংলা';
+            //                         break;
+            //                       case 3:
+            //                         code = 'pa';
+            //                         name = 'Punjabi';
+            //                         nativeName = 'ਪੰਜਾਬੀ';
+            //                         break;
+            //                       case 4:
+            //                         code = 'te';
+            //                         name = 'Telugu';
+            //                         nativeName = 'తెలుగు';
+            //                         break;
+            //                       case 5:
+            //                         code = 'mr';
+            //                         name = 'Marathi';
+            //                         nativeName = 'मराठी';
+            //                         break;
+            //                     }
+            //
+            //                     final isSelected = code == 'en'; // Placeholder logic
+            //
+            //                     return AnimatedContainer(
+            //                       duration: const Duration(milliseconds: 200),
+            //                       decoration: BoxDecoration(
+            //                         color: isSelected
+            //                             ? isDarkMode ? Colors.teal[900]! : Colors.teal[50]! // Added ! to handle nullable
+            //                             : isDarkMode ? const Color(0xFF303030) : Colors.grey[100]!, // Added ! to handle nullable
+            //                         borderRadius: BorderRadius.circular(12),
+            //                         border: Border.all(
+            //                           color: isSelected
+            //                               ? Colors.teal
+            //                               : isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, // Added ! to handle nullable
+            //                           width: 2,
+            //                         ),
+            //                       ),
+            //                       child: InkWell(
+            //                         onTap: () {
+            //                           // Just close the sheet for now
+            //                           Navigator.pop(context);
+            //                         },
+            //                         borderRadius: BorderRadius.circular(12),
+            //                         child: Column(
+            //                           mainAxisAlignment: MainAxisAlignment.center,
+            //                           children: [
+            //                             Text(
+            //                               nativeName,
+            //                               style: TextStyle(
+            //                                 fontSize: 18,
+            //                                 fontWeight: FontWeight.bold,
+            //                                 color: isSelected
+            //                                     ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
+            //                                     : isDarkMode ? Colors.white : Colors.black,
+            //                               ),
+            //                             ),
+            //                             const SizedBox(height: 4),
+            //                             Text(
+            //                               name,
+            //                               style: TextStyle(
+            //                                 fontSize: 14,
+            //                                 color: isSelected
+            //                                     ? isDarkMode ? Colors.teal[200]! : Colors.teal[800]! // Added ! to handle nullable
+            //                                     : isDarkMode ? Colors.grey[400]! : Colors.grey[600]!, // Added ! to handle nullable
+            //                               ),
+            //                             ),
+            //                             if (isSelected)
+            //                               Icon(
+            //                                 Icons.check_circle,
+            //                                 color: isDarkMode ? Colors.teal[200]! : Colors.teal[800]!, // Added ! to handle nullable
+            //                                 size: 20,
+            //                               ),
+            //                           ],
+            //                         ),
+            //                       ),
+            //                     );
+            //                   },
+            //                 ),
+            //               ),
+            //             ),
+            //             // Cancel button
+            //             Padding(
+            //               padding: const EdgeInsets.all(16.0),
+            //               child: ElevatedButton(
+            //                 onPressed: () => Navigator.pop(context),
+            //                 style: ElevatedButton.styleFrom(
+            //                   minimumSize: const Size(double.infinity, 50),
+            //                   backgroundColor: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!, // Added ! to handle nullable
+            //                   foregroundColor: isDarkMode ? Colors.white : Colors.black,
+            //                   shape: RoundedRectangleBorder(
+            //                     borderRadius: BorderRadius.circular(12),
+            //                   ),
+            //                 ),
+            //                 child: const Text('Cancel'),
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //       ),
+            //     );
+            //   },
+            // ),
 
 
             // Feedback and support section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                'Support',
+                'Feedback',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1287,54 +1287,54 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             ),
 
             // Help and support with app guide and contact info
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.blueGrey[700] : Colors.blue[50],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.help_outline,
-                  color: isDarkMode ? Colors.blue[300] : Colors.blue[400],
-                ),
-              ),
-              title: Text(
-                'Help & Support',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black,
-                ),
-              ),
-              subtitle: const Text('App guide and contact information'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Show help dialog
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Help & Support'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Need help with Classico?'),
-                        SizedBox(height: 8),
-                        Text('Email: support@classico.app'),
-                        Text('Phone: +1 (555) 123-4567'),
-                        SizedBox(height: 16),
-                        Text('App Version: 1.0.0'),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('CLOSE'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            // ListTile(
+            //   leading: Container(
+            //     padding: const EdgeInsets.all(8),
+            //     decoration: BoxDecoration(
+            //       color: isDarkMode ? Colors.blueGrey[700] : Colors.blue[50],
+            //       shape: BoxShape.circle,
+            //     ),
+            //     child: Icon(
+            //       Icons.help_outline,
+            //       color: isDarkMode ? Colors.blue[300] : Colors.blue[400],
+            //     ),
+            //   ),
+            //   title: Text(
+            //     'Help & Support',
+            //     style: TextStyle(
+            //       color: isDarkMode ? Colors.white : Colors.black,
+            //     ),
+            //   ),
+            //   subtitle: const Text('App guide and contact information'),
+            //   trailing: const Icon(Icons.chevron_right),
+            //   onTap: () {
+            //     // Show help dialog
+            //     showDialog(
+            //       context: context,
+            //       builder: (context) => AlertDialog(
+            //         title: const Text('Help & Support'),
+            //         content: Column(
+            //           mainAxisSize: MainAxisSize.min,
+            //           crossAxisAlignment: CrossAxisAlignment.start,
+            //           children: const [
+            //             Text('Need help with Classico?'),
+            //             SizedBox(height: 8),
+            //             Text('Email: support@classico.app'),
+            //             Text('Phone: +1 (555) 123-4567'),
+            //             SizedBox(height: 16),
+            //             Text('App Version: 1.0.0'),
+            //           ],
+            //         ),
+            //         actions: [
+            //           TextButton(
+            //             onPressed: () => Navigator.pop(context),
+            //             child: const Text('CLOSE'),
+            //           ),
+            //         ],
+            //       ),
+            //     );
+            //   },
+            // ),
 
             // NEW: App feedback submission
             ListTile(
