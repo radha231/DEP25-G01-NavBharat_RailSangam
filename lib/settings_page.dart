@@ -59,9 +59,29 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
 
 
-  void _showRatingDialog() {
+  void _showRatingDialog() async {
     double rating = 0;
+    double previousRating = 0;
 
+    // Step 1: Fetch previous rating (if any)
+    CollectionReference feedbackCollection = FirebaseFirestore.instance.collection('Feedback');
+    try {
+      QuerySnapshot querySnapshot = await feedbackCollection
+          .where('email_id', isEqualTo: emailId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Previous rating exists
+        previousRating = querySnapshot.docs.first['Rating']?.toDouble() ?? 0;
+        rating = previousRating;
+      }
+    } catch (e) {
+      // Optional: Show error or log it silently
+      debugPrint('Failed to fetch previous rating: $e');
+    }
+
+    // Step 2: Show the rating dialog with the previous rating
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -72,7 +92,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             const Text('How would you rate your experience?'),
             const SizedBox(height: 20),
             RatingBar.builder(
-              initialRating: 0,
+              initialRating: previousRating,
               minRating: 1,
               direction: Axis.horizontal,
               allowHalfRating: false,
@@ -84,7 +104,6 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               ),
               onRatingUpdate: (newRating) {
                 rating = newRating;
-                // Just store the rating, don't play sound yet
               },
             ),
           ],
@@ -95,20 +114,45 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             child: const Text('CANCEL'),
           ),
           ElevatedButton(
-            onPressed: () {
-              // Play sound when submitting based on rating
+            onPressed: () async {
+              // Play sound when submitting
               String soundPath = 'assets/sounds/rating.mp3';
               _audioPlayer.play(AssetSource(soundPath));
 
-              // Show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Thanks for rating us ${rating.toInt()} stars!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              try {
+                // Check again in case of race condition
+                QuerySnapshot querySnapshot = await feedbackCollection
+                    .where('email_id', isEqualTo: emailId)
+                    .limit(1)
+                    .get();
 
-              Navigator.pop(context);
+                if (querySnapshot.docs.isNotEmpty) {
+                  await querySnapshot.docs.first.reference.update({
+                    'Rating': rating.toInt(),
+                  });
+                } else {
+                  await feedbackCollection.add({
+                    'email_id': emailId,
+                    'Rating': rating.toInt(),
+                  });
+                }
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Thanks for rating us ${rating.toInt()} stars!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+
+                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error submitting feedback: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text('SUBMIT'),
           ),
@@ -116,6 +160,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ),
     );
   }
+
 
   String _getTextSizeLabel(double value) {
     if (value <= 0.8) return 'Small';
@@ -253,7 +298,31 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   // Feedback submission dialog
-  void _showFeedbackDialog() {
+  void _showFeedbackDialog() async {
+    // Step 1: Clear any previous input
+    _feedbackController.clear();
+
+    // Step 2: Try to fetch previous feedback
+    CollectionReference feedbackCollection = FirebaseFirestore.instance.collection('Feedback');
+
+    try {
+      QuerySnapshot querySnapshot = await feedbackCollection
+          .where('email_id', isEqualTo: emailId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final previousFeedback = querySnapshot.docs.first['feedback'];
+        if (previousFeedback != null && previousFeedback is String) {
+          _feedbackController.text = previousFeedback;
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load previous feedback: $e');
+      // Optional: Show a toast/snackbar or ignore silently
+    }
+
+    // Step 3: Show the dialog with the controller now prefilled
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -279,15 +348,52 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
             child: const Text('CANCEL'),
           ),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Implement feedback submission
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Thank you for your feedback!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-              Navigator.pop(context);
+            onPressed: () async {
+              final String feedbackText = _feedbackController.text.trim();
+
+              if (feedbackText.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Feedback cannot be empty.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                QuerySnapshot querySnapshot = await feedbackCollection
+                    .where('email_id', isEqualTo: emailId)
+                    .limit(1)
+                    .get();
+
+                if (querySnapshot.docs.isNotEmpty) {
+                  await querySnapshot.docs.first.reference.update({
+                    'feedback': feedbackText,
+                  });
+                } else {
+                  await feedbackCollection.add({
+                    'email_id': emailId,
+                    'feedback': feedbackText,
+                  });
+                }
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Thank you for your feedback!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+                _feedbackController.clear();
+                Navigator.pop(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error submitting feedback: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text('SUBMIT'),
           ),
@@ -295,6 +401,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ),
     );
   }
+
+
   void _editProfile() {
     // Controllers for text fields
     final TextEditingController nameController = TextEditingController();
