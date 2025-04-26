@@ -88,6 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                 final fromStation = journeyData['from_station'] as String?;
                 Globals.currentStation = journeyData['current_station'] as String?;
                 Globals.from_station = journeyData['from_station'] as String?;
+                Globals.to_station = journeyData['to_station'] as String?;
                 final toStation = journeyData['to_station'] as String?;
 
                 // Fetch train details
@@ -506,6 +507,7 @@ class _LoginPageState extends State<LoginPage> {
                                       });
                                       Globals.currentStation = selectedFromStation;
                                       Globals.from_station = selectedFromStation;
+                                      Globals.to_station = selectedToStation;
                                       // Navigate to Home Page after successful Firestore entry
                                       print('Navigating to HomePage');
                                       Navigator.pushReplacement(
