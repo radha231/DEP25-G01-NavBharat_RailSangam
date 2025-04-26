@@ -870,12 +870,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
         backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
         elevation: 0,
         // In AppBar of AccountSettingsScreen
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            widget.onBack(); // This will trigger the refresh
-            Navigator.pop(context, true); // Return true to indicate possible changes
-          },
+         leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
+          onPressed: widget.onBack,
         ),
         title: Text(
           'Settings',
