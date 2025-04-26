@@ -192,7 +192,10 @@ class TrainSocialAppState extends State<TrainSocialApp> {
       /// RRRRRRRR
       final prefs = await SharedPreferences.getInstance();
       final emailId = prefs.getString('user_email') ?? "";
-      String nextStation = selectedTrain.stations[0];
+      String nextStation ='End';
+      if(selectedTrain.stations.isNotEmpty){
+        nextStation = selectedTrain.stations[0];
+      }
       print("mudit");
       print(nextStation);
       FirebaseFirestore.instance
