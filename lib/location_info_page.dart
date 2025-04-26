@@ -208,7 +208,7 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                                 style: const TextStyle(fontSize: 13),
                               ),
                               Text(
-                                'To: ${widget.selectedTrain.stations.last}',
+                                'To: ${Globals.to_station}',
                                 style: const TextStyle(fontSize: 13),
                               ),
                               // Text(
@@ -246,19 +246,29 @@ class _LocationInfoPageState extends State<LocationInfoPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: widget.selectedTrain.stations.length,
-                  itemBuilder: (context, index) {
-                    return StopCard(
-                      name: widget.selectedTrain.stations[index],
-                      time: index == 0 ? 'Current Stop' : '',
-                      distance: index == 0 ? 'Now' : '',
-                      isCurrentStop: index == 0,
-                    );
-                  },
-                ),
+        widget.selectedTrain.stations.isEmpty
+            ? StopCard(
+          name: 'Destination Reached',
+          time: '',
+          distance: '',
+          isCurrentStop: false,
+        )
+            : ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: widget.selectedTrain.stations.length,
+          itemBuilder: (context, index) {
+            return StopCard(
+              name: widget.selectedTrain.stations[index],
+              time: index == 0 ? 'Current Stop' : '',
+              distance: index == 0 ? 'Now' : '',
+              isCurrentStop: index == 0,
+            );
+          },
+        )
+
+
+        ,
               ]),
             ),
           ),
