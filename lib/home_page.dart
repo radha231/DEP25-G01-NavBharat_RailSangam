@@ -131,7 +131,7 @@ class _HomePageState extends State<HomePage> {
 
   void startLocationTracking() {
     /////////////////////////////////
-    int fromIndex = -1;
+    int fromIndex = widget.selectedTrain.stations.length;
     for (int i = 0; i < widget.selectedTrain.stations.length; i++) {
       if (widget.selectedTrain.stations[i] == Globals.currentStation) {
         fromIndex = i;
@@ -146,7 +146,11 @@ class _HomePageState extends State<HomePage> {
         widget.selectedTrain.stations.removeAt(0); // Always remove the first element
         widget.selectedTrain.coordinates.removeAt(0);
       }
-      Globals.currentStation = widget.selectedTrain.stations[0];
+      if(widget.selectedTrain.stations.isEmpty) {
+        Globals.currentStation = 'End';
+      } else {
+        Globals.currentStation = widget.selectedTrain.stations[0];
+      }
     }
     _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       print('KKKKKKK');
