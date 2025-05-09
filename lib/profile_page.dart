@@ -131,57 +131,63 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    title,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.5,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: userDetails.length,
-                    itemBuilder: (context, index) {
-                      final user = userDetails[index];
-                      return ListTile(
-                        leading: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.grey[200],
-                          ),
-                          child: ClipOval(
-                            child: user['avatarUrl'].isNotEmpty
-                                ? SvgPicture.network(
-                              user['avatarUrl'],
-                              fit: BoxFit.cover,
-                              placeholderBuilder: (context) => Center(
-                                child: CircularProgressIndicator(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8, // Limit dialog height
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        title,
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.5, // List area
+                      child: ListView.builder(
+                        itemCount: userDetails.length,
+                        itemBuilder: (context, index) {
+                          final user = userDetails[index];
+                          return ListTile(
+                            leading: Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.grey[200],
                               ),
-                            )
-                                : Icon(Icons.person, size: 24),
-                          ),
-                        ),
-                        title: Text(user['name']),
-                        subtitle: Text(user['email']),
-                      );
-                    },
-                  ),
+                              child: ClipOval(
+                                child: user['avatarUrl'].isNotEmpty
+                                    ? SvgPicture.network(
+                                  user['avatarUrl'],
+                                  fit: BoxFit.cover,
+                                  placeholderBuilder: (context) => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                                    : const Icon(Icons.person, size: 24),
+                              ),
+                            ),
+                            title: Text(user['name']),
+                            subtitle: Text(user['email']),
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
