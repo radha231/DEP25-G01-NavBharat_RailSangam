@@ -55,7 +55,14 @@
   ```
   flutterfire configure --project=classico-dc2a9
   ```
-
+### 7. Clone the Repository
+ - Note: This is a private repository. You must be added as a contributor to access it.
+ - If you already have access:
+   ```bash
+   git clone https://github.com/radha231/Train-tourism-dep.git
+   cd Train-tourism-dep
+   ```
+  - If you already have the code then just open it in Android Studio 
 ## Running the App
 
 ### Run in Android Studio
